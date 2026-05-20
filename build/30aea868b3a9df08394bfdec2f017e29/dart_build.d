@@ -1,0 +1,1 @@
+ /Users/ialiaaah/.gemini/antigravity/scratch/tourism_prototype/build/30aea868b3a9df08394bfdec2f017e29/dart_build_result.json:  /Users/ialiaaah/.gemini/antigravity/scratch/tourism_prototype/pubspec.yaml /Users/ialiaaah/Documents/UI_tourism\ industry/test\ /tourism_prototype/.dart_tool/package_config.json /Users/ialiaaah/development/flutter/bin/cache/dart-sdk/version
