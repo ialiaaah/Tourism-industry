@@ -163,9 +163,6 @@ class ARView extends StatefulWidget {
 }
 
 class _ARViewState extends State<ARView> {
-  // Use 'provisional' as the initial state so we show a loading spinner
-  // instead of the permission-denied UI while the async check runs.
-  PermissionStatus _cameraPermission = PermissionStatus.provisional;
   bool showPlatformType;
   String permissionPromptDescription;
   String permissionPromptButtonText;
@@ -180,121 +177,21 @@ class _ARViewState extends State<ARView> {
   @override
   void initState() {
     super.initState();
-    _checkThenRequest();
-  }
-
-  // Check status first — if already granted, skip the request dialog.
-  _checkThenRequest() async {
-    final status = await Permission.camera.status;
-    if (status.isGranted || status.isLimited) {
-      if (mounted) setState(() => _cameraPermission = status);
-      return;
-    }
-    final requested = await Permission.camera.request();
-    if (mounted) setState(() => _cameraPermission = requested);
-  }
-
-  requestCameraPermission() async {
-    final cameraPermission = await Permission.camera.request();
-    if (mounted) setState(() => _cameraPermission = cameraPermission);
-  }
-
-  requestCameraPermissionFromSettings() async {
-    final cameraPermission = await Permission.camera.request();
-    if (cameraPermission == PermissionStatus.permanentlyDenied) {
-      openAppSettings();
-    }
-    if (mounted) setState(() => _cameraPermission = cameraPermission);
+    // ARKit handles camera permission natively — no need for permission_handler.
   }
 
   @override
   build(BuildContext context) {
-    switch (_cameraPermission) {
-      case (PermissionStatus.provisional): // loading — permission check in flight
-        {
-          return const Center(child: CircularProgressIndicator());
-        }
-      case (PermissionStatus.limited):
-      case (PermissionStatus.granted):
-        {
-          return Column(children: [
-            if (showPlatformType) Text(Theme.of(context).platform.toString()),
-            Expanded(
-                child: PlatformARView(Theme.of(context).platform).build(
-                    context: context,
-                    arViewCreatedCallback: widget.onARViewCreated,
-                    planeDetectionConfig: widget.planeDetectionConfig)),
-          ]);
-        }
-      case (PermissionStatus.denied):
-        {
-          return Center(
-              child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.camera_alt_outlined, size: 48, color: Colors.white54),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(permissionPromptDescription,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                  icon: const Icon(Icons.camera_alt),
-                  label: Text(permissionPromptButtonText),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFDFAF58),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async => {await requestCameraPermission()})
-            ],
-          ));
-        }
-      case (PermissionStatus.permanentlyDenied):
-        {
-          return Center(
-              child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.no_photography_outlined, size: 48, color: Colors.white54),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(permissionPromptDescription,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                  icon: const Icon(Icons.settings),
-                  label: Text(permissionPromptButtonText),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFDFAF58),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async =>
-                      {await requestCameraPermissionFromSettings()})
-            ],
-          ));
-        }
-      case (PermissionStatus.restricted):
-        {
-          return Center(
-            child: Text(permissionPromptParentalRestriction,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70)),
-          );
-        }
-      default:
-        return const SizedBox.shrink();
-    }
+    // Skip the permission check entirely. ARKit/ARCore handle camera
+    // permission at the OS level. The permission_handler wrapper conflicts
+    // with iOS's native permission flow and blocks the AR view incorrectly.
+    return Column(children: [
+      if (showPlatformType) Text(Theme.of(context).platform.toString()),
+      Expanded(
+          child: PlatformARView(Theme.of(context).platform).build(
+              context: context,
+              arViewCreatedCallback: widget.onARViewCreated,
+              planeDetectionConfig: widget.planeDetectionConfig)),
+    ]);
   }
 }
