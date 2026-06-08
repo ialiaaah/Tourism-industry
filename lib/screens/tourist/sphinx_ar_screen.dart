@@ -259,6 +259,19 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   void _onGestureUpdate(ScaleUpdateDetails details) {
     if (_sphinxNode == null || !_modelPlaced) return;
 
+    if (details.pointerCount == 1 && _moveMode) {
+      // Single-finger drag → move sphinx in XZ plane
+      const sensitivity = 0.004;
+      final cur = _sphinxNode!.position;
+      _sphinxNode!.position = vm.Vector3(
+        cur.x + details.focalPointDelta.dx * sensitivity,
+        cur.y,
+        cur.z + details.focalPointDelta.dy * sensitivity,
+      );
+      return;
+    }
+
+    // Two-finger: pinch = scale, twist = rotate Y
     final newScale = (_gestureBaseScale * details.scale).clamp(0.1, 5.0);
     final newRotY  = _gestureBaseRotY + details.rotation;
 
@@ -284,17 +297,6 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     _sphinxNode!.transform = vm.Matrix4.compose(pos, q, s);
     HapticFeedback.selectionClick();
     setState(() {});
-  }
-
-  // Single-finger drag moves the sphinx when move-mode is active
-  void _onDragMove(DragUpdateDetails details) {
-    if (_sphinxNode == null || !_modelPlaced || !_moveMode) return;
-    // Map screen pixels → world units at roughly the model's distance
-    const sensitivity = 0.004;
-    final dx = details.delta.dx * sensitivity;
-    final dz = details.delta.dy * sensitivity; // screen-Y → world-Z (depth)
-    final cur = _sphinxNode!.position;
-    _sphinxNode!.position = vm.Vector3(cur.x + dx, cur.y, cur.z + dz);
   }
 
   void _rotateY(double delta) {
@@ -336,14 +338,11 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       body: Stack(
         children: [
           // ① AR camera fills screen
-          // Single-finger drag → move sphinx (when _moveMode)
-          // Two-finger pinch  → scale
-          // Two-finger twist  → rotate Y
+          // onScale handles everything: 1-finger drag (move) + 2-finger pinch/twist
           GestureDetector(
             onScaleStart: _onGestureStart,
             onScaleUpdate: _onGestureUpdate,
             onScaleEnd: _onGestureEnd,
-            onPanUpdate: _onDragMove,
             child: ARView(
               onARViewCreated: _onARViewCreated,
               planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
