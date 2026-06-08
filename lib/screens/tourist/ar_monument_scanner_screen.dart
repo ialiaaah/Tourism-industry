@@ -5,15 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../services/sphinx_recognition_service.dart';
+import '../../services/google_vision_service.dart';
 import '../../services/monument_data_service.dart';
 import '../../services/game_progress_service.dart';
 import '../../theme/app_theme.dart';
-import 'ar_experience_screen.dart';
+import 'sphinx_ar_screen.dart';
 import 'treasure_hunt_screen.dart';
 import 'web_cam/cam_interface.dart';
 
-/// Heritage Scanner — recognises ONLY the Great Sphinx (prototype).
+/// Heritage Scanner — uses Google Vision landmark detection to recognise
+/// monuments and routes to the appropriate AR / Treasure Hunt experience.
 class ARMonumentScannerScreen extends StatefulWidget {
   const ARMonumentScannerScreen({super.key});
   @override
@@ -36,7 +37,9 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
 
   // Scan state
   _ScanState _state = _ScanState.idle;
-  SphinxRecognitionResult? _result;
+  DetectedLandmark? _result;
+  MonumentInfo? _monument;
+  String _failureMessage = 'No monument detected. Try a different angle or image.';
 
   // Animations
   late AnimationController _bracketCtrl;
@@ -128,27 +131,60 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     setState(() {
       _state = _ScanState.scanning;
       _result = null;
+      _monument = null;
     });
     HapticFeedback.lightImpact();
 
-    final result = await SphinxRecognitionService.scan(bytes);
-    if (!mounted) return;
+    try {
+      final detected = await GoogleVisionService.detectLandmark(bytes);
+      if (!mounted) return;
 
-    if (result.isRecognized) {
-      HapticFeedback.heavyImpact();
-      _successCtrl.forward(from: 0);
-      final progress =
-          Provider.of<GameProgressService>(context, listen: false);
-      await progress.scanMonument('sphinx');
-      setState(() {
-        _state = _ScanState.success;
-        _result = result;
-      });
-    } else {
+      if (detected != null) {
+        // Try to find a matching monument in the database
+        final monument = MonumentDataService.findByDetectedName(detected.name);
+
+        HapticFeedback.heavyImpact();
+        _successCtrl.forward(from: 0);
+
+        // Award points if we have a matching monument
+        if (monument != null) {
+          await Provider.of<GameProgressService>(context, listen: false)
+              .scanMonument(monument.id);
+        } else if (detected.name.toLowerCase().contains('sphinx')) {
+          // Sphinx detected but not found by name lookup — use fallback
+          final sphinx = MonumentDataService.findByDetectedName('The Great Sphinx');
+          if (sphinx != null && mounted) {
+            await Provider.of<GameProgressService>(context, listen: false)
+                .scanMonument(sphinx.id);
+          }
+        }
+
+        setState(() {
+          _state = _ScanState.success;
+          _result = detected;
+          _monument = monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+        });
+      } else {
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _state = _ScanState.failure;
+          _failureMessage =
+              'No monument recognised. Ensure the landmark is clearly visible and try again.';
+        });
+      }
+    } on VisionException catch (e) {
+      if (!mounted) return;
       HapticFeedback.mediumImpact();
       setState(() {
         _state = _ScanState.failure;
-        _result = result;
+        _failureMessage = GoogleVisionService.messageForFailure(e.failure);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _state = _ScanState.failure;
+        _failureMessage = 'An unexpected error occurred. Please try again.';
       });
     }
   }
@@ -168,10 +204,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
       if (mounted) {
         setState(() {
           _state = _ScanState.failure;
-          _result = SphinxRecognitionResult(
-              isRecognized: false,
-              confidence: 0,
-              message: 'Camera error: ${e.description ?? e.code}');
+          _failureMessage = 'Camera error: ${e.description ?? e.code}';
         });
       }
     }
@@ -189,10 +222,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
       if (mounted) {
         setState(() {
           _state = _ScanState.failure;
-          _result = const SphinxRecognitionResult(
-              isRecognized: false,
-              confidence: 0,
-              message: 'Could not read image.');
+          _failureMessage = 'Could not read image.';
         });
       }
     }
@@ -208,10 +238,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
       if (mounted) {
         setState(() {
           _state = _ScanState.failure;
-          _result = const SphinxRecognitionResult(
-              isRecognized: false,
-              confidence: 0,
-              message: 'Could not capture frame.');
+          _failureMessage = 'Could not capture frame.';
         });
       }
     }
@@ -221,6 +248,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     setState(() {
       _state = _ScanState.idle;
       _result = null;
+      _monument = null;
     });
     _successCtrl.reset();
   }
@@ -228,17 +256,23 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
   // ── Navigation ────────────────────────────────────────────────────────────
 
   void _openARExperience() {
-    final sphinx = MonumentDataService.findByDetectedName('The Great Sphinx');
-    if (sphinx == null) return;
+    final detected = _result;
+    if (detected == null) return;
+
+    // Navigate to SphinxARScreen for Sphinx detections; fall back to it for
+    // any other monument until dedicated AR screens are built.
+    final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+    if (monument == null) return;
+
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => ARExperienceScreen(monument: sphinx)));
+        MaterialPageRoute(builder: (_) => SphinxARScreen(monument: monument)));
   }
 
   void _openTreasureHunt() {
-    final sphinx = MonumentDataService.findByDetectedName('The Great Sphinx');
-    if (sphinx == null) return;
+    final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+    if (monument == null) return;
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => TreasureHuntScreen(monument: sphinx)));
+        MaterialPageRoute(builder: (_) => TreasureHuntScreen(monument: monument)));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -295,8 +329,8 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
           if (_state == _ScanState.scanning) _buildScanningOverlay(),
           if (_state == _ScanState.success && _result != null)
             _buildSuccessOverlay(_result!),
-          if (_state == _ScanState.failure && _result != null)
-            _buildFailureOverlay(_result!),
+          if (_state == _ScanState.failure)
+            _buildFailureOverlay(_failureMessage),
         ],
       ),
     );
@@ -344,7 +378,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
             children: [
               Text('Heritage Scanner',
                   style: AppTextStyles.h3.copyWith(color: AppColors.cream)),
-              Text('Sphinx Recognition',
+              Text('Monument Recognition',
                   style:
                       AppTextStyles.labelSmall.copyWith(color: AppColors.gold)),
             ],
@@ -396,13 +430,13 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
             ),
             child: Column(
               children: [
-                Text('Scan the Great Sphinx',
+                Text('Scan a Monument',
                     style: AppTextStyles.h3
                         .copyWith(color: AppColors.gold),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 4),
                 Text(
-                  'Point your camera at the provided Sphinx image to unlock the AR experience.',
+                  'Point your camera at any heritage landmark to identify it and unlock the AR experience.',
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.sand),
                   textAlign: TextAlign.center,
@@ -473,7 +507,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                         .copyWith(color: AppColors.gold)),
                 const SizedBox(height: 8),
                 Text(
-                  'Comparing with Sphinx reference data',
+                  'Identifying monument via Google Vision',
                   style: AppTextStyles.body,
                   textAlign: TextAlign.center,
                 ),
@@ -485,7 +519,8 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     );
   }
 
-  Widget _buildSuccessOverlay(SphinxRecognitionResult result) {
+  Widget _buildSuccessOverlay(DetectedLandmark result) {
+    final isSphinx = result.name.toLowerCase().contains('sphinx');
     return Positioned.fill(
       child: Container(
         color: Colors.black.withValues(alpha: 0.72),
@@ -525,12 +560,12 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                         color: AppColors.success, size: 36),
                   ),
                   const SizedBox(height: 16),
-                  Text('Great Sphinx Detected',
+                  Text(result.name,
                       style: AppTextStyles.h2
                           .copyWith(color: AppColors.gold),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 8),
-                  Text('Your heritage discovery is ready.',
+                  Text('Monument identified! Your heritage discovery is ready.',
                       style: AppTextStyles.body,
                       textAlign: TextAlign.center),
                   const SizedBox(height: 10),
@@ -557,7 +592,9 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                     child: ElevatedButton.icon(
                       onPressed: _openARExperience,
                       icon: const Icon(Icons.explore_rounded, size: 18),
-                      label: const Text('Explore AR Experience'),
+                      label: Text(isSphinx
+                          ? 'Explore Sphinx in AR'
+                          : 'Explore AR Experience'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.gold,
                         foregroundColor: AppColors.bg,
@@ -602,7 +639,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     );
   }
 
-  Widget _buildFailureOverlay(SphinxRecognitionResult result) {
+  Widget _buildFailureOverlay(String message) {
     return Positioned.fill(
       child: Container(
         color: Colors.black.withValues(alpha: 0.72),
@@ -632,13 +669,13 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                       color: AppColors.terra, size: 36),
                 ),
                 const SizedBox(height: 16),
-                Text('Not Available Yet',
+                Text('Monument Not Recognised',
                     style: AppTextStyles.h2
                         .copyWith(color: AppColors.cream),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 10),
                 Text(
-                  'This prototype currently recognises the Great Sphinx only. Please scan the provided Sphinx image to continue.',
+                  message,
                   style: AppTextStyles.body,
                   textAlign: TextAlign.center,
                 ),

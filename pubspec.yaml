@@ -50,6 +50,9 @@ dependencies:
   flutter_tts: ^4.2.0
   shared_preferences: ^2.3.0
   confetti: ^0.8.0
+  ar_flutter_plugin: ^0.7.3
+  vector_math: ^2.1.4
+  smooth_page_indicator: ^1.2.0+3
 
 
 dev_dependencies:
