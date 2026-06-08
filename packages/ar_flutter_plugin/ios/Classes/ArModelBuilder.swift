@@ -117,18 +117,24 @@ class ArModelBuilder: NSObject {
     
     // Creates a node from a given glb model in the app's documents directory
     func makeNodeFromFileSystemGLB(name: String, modelPath: String, transformation: Array<NSNumber>?) -> SCNNode? {
-        
+
         var scene: SCNScene
         let node: SCNNode = SCNNode()
+
+        print("[SphinxAR] Loading GLB from: \(modelPath)")
+        let fileExists = FileManager.default.fileExists(atPath: modelPath)
+        print("[SphinxAR] File exists: \(fileExists)")
+        if fileExists, let attrs = try? FileManager.default.attributesOfItem(atPath: modelPath) {
+            print("[SphinxAR] File size: \(attrs[.size] ?? 0) bytes")
+        }
 
         do {
             let sceneSource = try GLTFSceneSource(path: modelPath)
             scene = try sceneSource.scene()
+            print("[SphinxAR] GLB loaded OK, childNodes: \(scene.rootNode.childNodes.count)")
 
             for child in scene.rootNode.childNodes {
-                child.scale = SCNVector3(0.01,0.01,0.01) // Compensate for the different model dimension definitions in iOS and Android (meters vs. millimeters)
-                //child.eulerAngles.z = -.pi // Compensate for the different model coordinate definitions in iOS and Android
-                //child.eulerAngles.y = -.pi // Compensate for the different model coordinate definitions in iOS and Android
+                // Skip the 0.01 mm→m factor — our model is already in metres
                 node.addChildNode(child.flattenedClone())
             }
 
@@ -139,7 +145,7 @@ class ArModelBuilder: NSObject {
 
             return node
         } catch {
-            print("\(error.localizedDescription)")
+            print("[SphinxAR] GLTFSceneSource error: \(error)")
             return nil
         }
     }

@@ -212,7 +212,7 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     final node = ARNode(
       type: NodeType.fileSystemAppFolderGLB,
       uri: 'sphinx.glb',
-      scale:    vm.Vector3(0.25, 0.25, 0.25),
+      scale:    vm.Vector3(0.15, 0.15, 0.15), // model ~2m; target ~30cm visible
       position: vm.Vector3(0.0, 0.0, 0.0),
       rotation: vm.Vector4(0.0, 1.0, 0.0, 0.0),
     );
