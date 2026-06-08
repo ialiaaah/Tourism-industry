@@ -79,12 +79,17 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   ARObjectManager?   _objectMgr;
   ARAnchorManager?   _anchorMgr;
   ARNode?            _sphinxNode;
-  ARAnchor?          _sphinxAnchor;
   bool _modelPlaced  = false;
-  bool _isPlacing    = false;
   bool _modelReady   = false;   // true once GLB is copied to documents dir
-  double _currentScale = 0.8;   // tracks live scale for pinch gesture
-  String _hint       = '✨  Slowly scan a flat surface, then tap to summon the Sphinx!';
+  bool _moveMode     = false;   // when true, next tap repositions the sphinx
+
+  // Gesture tracking
+  double _currentScale    = 0.8;
+  double _currentRotY     = math.pi / 2; // face forward (-Z) by default
+  double _gestureBaseScale = 0.8;
+  double _gestureBaseRotY  = math.pi / 2;
+
+  String _hint = '✨  Slowly scan a flat surface, then tap to summon the Sphinx!';
 
   // ── Facts carousel ────────────────────────────────────────────────────────
   int _factIndex   = 0;
@@ -184,58 +189,58 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   }
 
   Future<void> _onPlaneTapped(List<ARHitTestResult> results) async {
-    if (_modelPlaced || _isPlacing || results.isEmpty || !_modelReady) return;
+    if (results.isEmpty || !_modelReady) return;
 
     final hit = results.firstWhere(
       (r) => r.type == ARHitTestResultType.plane,
       orElse: () => results.first,
     );
 
-    setState(() {
-      _isPlacing = true;
-      _hint = '⏳  Summoning the Great Sphinx…';
-    });
-    HapticFeedback.mediumImpact();
+    // Extract world-space position from hit
+    final pos = hit.worldTransform.getTranslation();
 
-    final anchor = ARPlaneAnchor(transformation: hit.worldTransform);
-    final added  = await _anchorMgr?.addAnchor(anchor);
-    if (added != true) {
-      setState(() {
-        _isPlacing = false;
-        _hint = '🔄  Couldn\'t anchor. Tap a flat surface.';
-      });
+    if (_modelPlaced && _sphinxNode != null) {
+      // Move or re-place
+      if (_moveMode) {
+        _sphinxNode!.position = pos;
+        HapticFeedback.selectionClick();
+        setState(() {
+          _moveMode = false;
+          _hint = '🦁  Sphinx moved! Pinch to resize, twist to rotate.';
+        });
+      }
       return;
     }
 
-    // Load from documents directory — GLB was copied there in _copyGlbToDocuments().
-    // fileSystemAppFolderGLB uses GLTFSceneSource(path:) which takes a full
-    // absolute path and reliably handles binary GLB files.
+    // ── First placement ───────────────────────────────────────────────────
+    HapticFeedback.mediumImpact();
+    setState(() => _hint = '⏳  Summoning…');
+
     final node = ARNode(
       type: NodeType.fileSystemAppFolderGLB,
       uri: 'sphinx.glb',
-      scale:    vm.Vector3(0.8, 0.8, 0.8), // ~1.6m long in AR — clearly visible
-      position: vm.Vector3(0.0, 0.0, 0.0),
-      rotation: vm.Vector4(0.0, 1.0, 0.0, 0.0),
+      scale:    vm.Vector3(_currentScale, _currentScale, _currentScale),
+      position: pos,
+      // Rotate 90° around Y so the long body points away from user (depth)
+      // and fix upright: no X rotation needed (model is already Y-up)
+      rotation: vm.Vector4(0.0, 1.0, 0.0, _currentRotY),
     );
 
-    final placed = await _objectMgr?.addNode(node, planeAnchor: anchor);
+    final placed = await _objectMgr?.addNode(node);
     if (placed == true) {
-      _sphinxNode   = node;
-      _sphinxAnchor = anchor;
+      _sphinxNode = node;
       if (mounted) {
         Provider.of<GameProgressService>(context, listen: false)
             .scanMonument(widget.monument.id);
       }
       setState(() {
         _modelPlaced       = true;
-        _isPlacing         = false;
-        _hint              = '🦁  The Sphinx is here! Walk around to explore.';
+        _hint              = '🦁  Sphinx placed! Pinch=resize  Twist=rotate  📐 buttons=size';
         _showWelcomeBanner = true;
       });
       HapticFeedback.heavyImpact();
       _confetti.play();
       _bannerCtrl.forward();
-      // Auto-hide welcome banner after 3 s
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
           _bannerCtrl.reverse();
@@ -245,39 +250,71 @@ class _SphinxARScreenState extends State<SphinxARScreen>
         }
       });
     } else {
-      await _anchorMgr?.removeAnchor(anchor);
-      setState(() {
-        _isPlacing = false;
-        _hint = '⚠️  Model failed to load. Check assets/models/sphinx.glb';
-      });
+      setState(() => _hint = '⚠️  Couldn\'t load model — try tapping again.');
     }
   }
 
   Future<void> _resetModel() async {
-    if (_sphinxNode   != null) { await _objectMgr?.removeNode(_sphinxNode!);   _sphinxNode   = null; }
-    if (_sphinxAnchor != null) { await _anchorMgr?.removeAnchor(_sphinxAnchor!); _sphinxAnchor = null; }
+    if (_sphinxNode != null) {
+      await _objectMgr?.removeNode(_sphinxNode!);
+      _sphinxNode = null;
+    }
     setState(() {
-      _modelPlaced = false;
-      _isPlacing   = false;
-      _hint        = '✨  Scan a flat surface, then tap to place the Sphinx again!';
+      _modelPlaced    = false;
+      _moveMode       = false;
+      _currentScale   = 0.8;
+      _currentRotY    = math.pi / 2;
+      _gestureBaseScale = 0.8;
+      _gestureBaseRotY  = math.pi / 2;
+      _hint = '✨  Scan a flat surface, then tap to place the Sphinx again!';
     });
   }
 
-  void _onPinchScale(ScaleUpdateDetails details) {
+  // ── Gesture: pinch = scale, twist = rotate Y ─────────────────────────────
+  void _onGestureStart(ScaleStartDetails _) {
+    _gestureBaseScale = _currentScale;
+    _gestureBaseRotY  = _currentRotY;
+  }
+
+  void _onGestureUpdate(ScaleUpdateDetails details) {
     if (_sphinxNode == null || !_modelPlaced) return;
-    // details.scale is relative to the start of this gesture — use horizontalScale
-    final newScale = (_currentScale * details.scale).clamp(0.1, 5.0);
-    _sphinxNode!.scale = vm.Vector3(newScale, newScale, newScale);
-    // Don't setState — just update scale continuously
+
+    final newScale = (_gestureBaseScale * details.scale).clamp(0.1, 5.0);
+    final newRotY  = _gestureBaseRotY + details.rotation;
+
+    _currentScale = newScale;
+    _currentRotY  = newRotY;
+
+    final pos = _sphinxNode!.position;
+    final q   = vm.Quaternion.axisAngle(vm.Vector3(0, 1, 0), newRotY);
+    final s   = vm.Vector3(newScale, newScale, newScale);
+    _sphinxNode!.transform = vm.Matrix4.compose(pos, q, s);
+  }
+
+  void _onGestureEnd(ScaleEndDetails _) {
+    if (mounted) setState(() {}); // refresh % readout
   }
 
   void _adjustScale(double delta) {
     if (_sphinxNode == null || !_modelPlaced) return;
-    final newScale = (_currentScale + delta).clamp(0.1, 5.0);
-    _currentScale = newScale;
-    _sphinxNode!.scale = vm.Vector3(newScale, newScale, newScale);
+    _currentScale = (_currentScale + delta).clamp(0.1, 5.0);
+    final pos = _sphinxNode!.position;
+    final q   = vm.Quaternion.axisAngle(vm.Vector3(0, 1, 0), _currentRotY);
+    final s   = vm.Vector3(_currentScale, _currentScale, _currentScale);
+    _sphinxNode!.transform = vm.Matrix4.compose(pos, q, s);
     HapticFeedback.selectionClick();
-    setState(() {}); // refresh so buttons feel responsive
+    setState(() {});
+  }
+
+  void _rotateY(double delta) {
+    if (_sphinxNode == null || !_modelPlaced) return;
+    _currentRotY += delta;
+    final pos = _sphinxNode!.position;
+    final q   = vm.Quaternion.axisAngle(vm.Vector3(0, 1, 0), _currentRotY);
+    final s   = vm.Vector3(_currentScale, _currentScale, _currentScale);
+    _sphinxNode!.transform = vm.Matrix4.compose(pos, q, s);
+    HapticFeedback.selectionClick();
+    setState(() {});
   }
 
   Future<void> _toggleAudio() async {
@@ -307,16 +344,11 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ① AR camera fills screen (with pinch-to-zoom overlay)
+          // ① AR camera fills screen — pinch=scale, two-finger-twist=rotate
           GestureDetector(
-            onScaleUpdate: _onPinchScale,
-            onScaleEnd: (_) {
-              // Commit the new scale so +/- buttons start from the right base
-              if (_sphinxNode != null) {
-                _currentScale = _sphinxNode!.scale.x;
-                if (mounted) setState(() {});
-              }
-            },
+            onScaleStart: _onGestureStart,
+            onScaleUpdate: _onGestureUpdate,
+            onScaleEnd: _onGestureEnd,
             child: ARView(
               onARViewCreated: _onARViewCreated,
               planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
@@ -339,11 +371,11 @@ class _SphinxARScreenState extends State<SphinxARScreen>
           ),
 
           // ③ Scan ring before placement
-          if (!_modelPlaced && !_isPlacing)
+          if (!_modelPlaced && !_moveMode)
             Center(child: _buildScanRing()),
 
           // ④ Placing spinner
-          if (_isPlacing)
+          if (_moveMode)
             Center(
               child: Container(
                 padding: const EdgeInsets.all(22),
@@ -622,24 +654,26 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Size controls — only shown after placement
+          // Controls — shown after placement
           if (_modelPlaced) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.7),
+                color: Colors.black.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('📐', style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: 8),
-                  Text('Size', style: AppTextStyles.labelSmall.copyWith(color: AppColors.sand)),
+                  // Rotate left/right
+                  _SizeBtn(label: '↺', onTap: () => _rotateY(-math.pi / 8)),
+                  const SizedBox(width: 6),
+                  _SizeBtn(label: '↻', onTap: () => _rotateY(math.pi / 8)),
                   const SizedBox(width: 12),
+                  // Size
                   _SizeBtn(label: '−', onTap: () => _adjustScale(-0.1)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
@@ -650,10 +684,35 @@ class _SphinxARScreenState extends State<SphinxARScreen>
                         style: AppTextStyles.labelSmall.copyWith(
                             color: AppColors.gold, fontWeight: FontWeight.bold)),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _SizeBtn(label: '+', onTap: () => _adjustScale(0.1)),
-                  const SizedBox(width: 16),
-                  const Text('🤏 Pinch to resize', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  const SizedBox(width: 12),
+                  // Move button
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _moveMode = !_moveMode;
+                        _hint = _moveMode
+                            ? '👆 Tap a surface to move the Sphinx there'
+                            : '🦁 Sphinx ready! Pinch=resize  Twist=rotate';
+                      });
+                      HapticFeedback.selectionClick();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _moveMode
+                            ? AppColors.terra.withValues(alpha: 0.4)
+                            : Colors.white10,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _moveMode ? AppColors.terra : Colors.white24),
+                      ),
+                      child: Text(_moveMode ? '📍 Moving…' : '✋ Move',
+                          style: AppTextStyles.labelSmall.copyWith(
+                              color: _moveMode ? AppColors.terra : Colors.white54)),
+                    ),
+                  ),
                 ],
               ),
             ),
