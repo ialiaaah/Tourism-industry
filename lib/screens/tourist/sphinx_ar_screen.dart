@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:ar_flutter_plugin/ar_flutter_plugin.dart';
 import 'package:ar_flutter_plugin/datatypes/config_planedetection.dart';
@@ -13,6 +14,7 @@ import 'package:ar_flutter_plugin/models/ar_node.dart';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
@@ -78,9 +80,10 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   ARAnchorManager?   _anchorMgr;
   ARNode?            _sphinxNode;
   ARAnchor?          _sphinxAnchor;
-  bool _modelPlaced = false;
-  bool _isPlacing   = false;
-  String _hint      = '✨  Slowly scan a flat surface, then tap to summon the Sphinx!';
+  bool _modelPlaced  = false;
+  bool _isPlacing    = false;
+  bool _modelReady   = false;   // true once GLB is copied to documents dir
+  String _hint       = '✨  Slowly scan a flat surface, then tap to summon the Sphinx!';
 
   // ── Facts carousel ────────────────────────────────────────────────────────
   int _factIndex   = 0;
@@ -130,6 +133,23 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     _factPopCtrl.value = 1.0;
 
     _confetti = ConfettiController(duration: const Duration(seconds: 2));
+    _copyGlbToDocuments();
+  }
+
+  /// Copy sphinx.glb from Flutter assets → documents directory so
+  /// NodeType.fileSystemAppFolderGLB can load it with a full path.
+  Future<void> _copyGlbToDocuments() async {
+    try {
+      final dir  = await getApplicationDocumentsDirectory();
+      final dest = File('${dir.path}/sphinx.glb');
+      if (!await dest.exists()) {
+        final data = await rootBundle.load('assets/models/sphinx.glb');
+        await dest.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      }
+      if (mounted) setState(() => _modelReady = true);
+    } catch (e) {
+      debugPrint('[SphinxAR] GLB copy failed: $e');
+    }
   }
 
   @override
@@ -163,7 +183,7 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   }
 
   Future<void> _onPlaneTapped(List<ARHitTestResult> results) async {
-    if (_modelPlaced || _isPlacing || results.isEmpty) return;
+    if (_modelPlaced || _isPlacing || results.isEmpty || !_modelReady) return;
 
     final hit = results.firstWhere(
       (r) => r.type == ARHitTestResultType.plane,
@@ -186,10 +206,11 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       return;
     }
 
-    // URI = just the filename — ar_flutter_plugin looks in the iOS app bundle
-    // (ios/Runner/sphinx.glb) and Android assets (android/app/src/main/assets/)
+    // Load from documents directory — GLB was copied there in _copyGlbToDocuments().
+    // fileSystemAppFolderGLB uses GLTFSceneSource(path:) which takes a full
+    // absolute path and reliably handles binary GLB files.
     final node = ARNode(
-      type: NodeType.localGLTF2,
+      type: NodeType.fileSystemAppFolderGLB,
       uri: 'sphinx.glb',
       scale:    vm.Vector3(0.25, 0.25, 0.25),
       position: vm.Vector3(0.0, 0.0, 0.0),
