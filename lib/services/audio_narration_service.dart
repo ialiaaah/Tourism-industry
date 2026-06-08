@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -5,6 +6,7 @@ class AudioNarrationService extends ChangeNotifier {
   late FlutterTts _tts;
   bool _isPlaying = false;
   String? _currentText;
+  bool _ready = false;
 
   bool get isPlaying => _isPlaying;
   String? get currentText => _currentText;
@@ -13,8 +15,23 @@ class AudioNarrationService extends ChangeNotifier {
     _initTts();
   }
 
-  void _initTts() {
+  Future<void> _initTts() async {
     _tts = FlutterTts();
+
+    // ── iOS-specific: activate the audio session so TTS actually makes sound ──
+    if (Platform.isIOS) {
+      await _tts.setSharedInstance(true);
+      await _tts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+        ],
+        IosTextToSpeechAudioMode.defaultMode,
+      );
+    }
 
     _tts.setStartHandler(() {
       _isPlaying = true;
@@ -40,46 +57,43 @@ class AudioNarrationService extends ChangeNotifier {
       notifyListeners();
     });
 
-    // Configure default parameters
-    _tts.setLanguage('en-US');
-    _tts.setSpeechRate(0.5); // Natural rate
-    _tts.setVolume(1.0);
-    _tts.setPitch(1.0);
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.45);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+    await _tts.awaitSpeakCompletion(true);
+
+    _ready = true;
   }
 
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
+    if (!_ready) await Future.delayed(const Duration(milliseconds: 300));
 
-    if (_isPlaying && _currentText == text) {
-      await stop();
-      return;
-    }
-
-    await stop();
-    _currentText = text;
-    await _tts.speak(text);
-  }
-
-  Future<void> stop() async {
     if (_isPlaying) {
       await _tts.stop();
       _isPlaying = false;
       _currentText = null;
       notifyListeners();
+      // If same text tapped again — toggle off
+      if (_currentText == text) return;
     }
+
+    _currentText = text;
+    notifyListeners();
+    await _tts.speak(text);
   }
 
-  Future<void> setLanguage(String lang) async {
-    await _tts.setLanguage(lang);
-  }
-
-  Future<void> setSpeechRate(double rate) async {
-    await _tts.setSpeechRate(rate);
+  Future<void> stop() async {
+    await _tts.stop();
+    _isPlaying = false;
+    _currentText = null;
+    notifyListeners();
   }
 
   @override
   void dispose() {
-    stop();
+    _tts.stop();
     super.dispose();
   }
 }

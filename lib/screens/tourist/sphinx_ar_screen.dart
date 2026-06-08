@@ -314,11 +314,19 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     if (_playing) {
       await _audio.stop();
       if (mounted) setState(() => _playing = false);
-    } else {
-      setState(() => _playing = true);
-      await _audio.speak(widget.monument.audioNarrationText);
-      if (mounted) setState(() => _playing = false);
+      return;
     }
+    if (mounted) setState(() => _playing = true);
+    final text = widget.monument.audioNarrationText.isNotEmpty
+        ? widget.monument.audioNarrationText
+        : 'Welcome to the Great Sphinx of Giza. '
+          'Standing 20 metres tall and 73 metres long, '
+          'this colossal limestone statue has guarded the Giza plateau for over 4,500 years. '
+          'Its face is believed to be that of Pharaoh Khafre, '
+          'and it remains the largest monolithic sculpture ever carved. '
+          'Scan the facts below to uncover its ancient secrets.';
+    await _audio.speak(text);
+    if (mounted) setState(() => _playing = false);
   }
 
   void _onFactChanged(int i) {
