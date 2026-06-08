@@ -83,6 +83,7 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   bool _modelPlaced  = false;
   bool _isPlacing    = false;
   bool _modelReady   = false;   // true once GLB is copied to documents dir
+  double _currentScale = 0.8;   // tracks live scale for pinch gesture
   String _hint       = '✨  Slowly scan a flat surface, then tap to summon the Sphinx!';
 
   // ── Facts carousel ────────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     final node = ARNode(
       type: NodeType.fileSystemAppFolderGLB,
       uri: 'sphinx.glb',
-      scale:    vm.Vector3(0.15, 0.15, 0.15), // model ~2m; target ~30cm visible
+      scale:    vm.Vector3(0.8, 0.8, 0.8), // ~1.6m long in AR — clearly visible
       position: vm.Vector3(0.0, 0.0, 0.0),
       rotation: vm.Vector4(0.0, 1.0, 0.0, 0.0),
     );
@@ -262,6 +263,23 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     });
   }
 
+  void _onPinchScale(ScaleUpdateDetails details) {
+    if (_sphinxNode == null || !_modelPlaced) return;
+    // details.scale is relative to the start of this gesture — use horizontalScale
+    final newScale = (_currentScale * details.scale).clamp(0.1, 5.0);
+    _sphinxNode!.scale = vm.Vector3(newScale, newScale, newScale);
+    // Don't setState — just update scale continuously
+  }
+
+  void _adjustScale(double delta) {
+    if (_sphinxNode == null || !_modelPlaced) return;
+    final newScale = (_currentScale + delta).clamp(0.1, 5.0);
+    _currentScale = newScale;
+    _sphinxNode!.scale = vm.Vector3(newScale, newScale, newScale);
+    HapticFeedback.selectionClick();
+    setState(() {}); // refresh so buttons feel responsive
+  }
+
   Future<void> _toggleAudio() async {
     if (_playing) {
       await _audio.stop();
@@ -289,10 +307,20 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ① AR camera fills screen
-          ARView(
-            onARViewCreated: _onARViewCreated,
-            planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
+          // ① AR camera fills screen (with pinch-to-zoom overlay)
+          GestureDetector(
+            onScaleUpdate: _onPinchScale,
+            onScaleEnd: (_) {
+              // Commit the new scale so +/- buttons start from the right base
+              if (_sphinxNode != null) {
+                _currentScale = _sphinxNode!.scale.x;
+                if (mounted) setState(() {});
+              }
+            },
+            child: ARView(
+              onARViewCreated: _onARViewCreated,
+              planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
+            ),
           ),
 
           // ② Confetti burst on placement
@@ -591,39 +619,81 @@ class _SphinxARScreenState extends State<SphinxARScreen>
   Widget _buildActionBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(children: [
-        Expanded(
-          flex: 3,
-          child: _ActionBtn(
-            emoji: '🗺️',
-            label: 'Treasure Hunt',
-            sublabel: '${_kFacts.length} challenges',
-            color: AppColors.terra,
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) =>
-                        TreasureHuntScreen(monument: widget.monument))),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 2,
-          child: _modelPlaced
-              ? _ActionBtn(
-                  emoji: '🔄',
-                  label: 'Reset',
-                  sublabel: 'Place again',
-                  color: AppColors.muted,
-                  onTap: _resetModel)
-              : _ActionBtn(
-                  emoji: '👆',
-                  label: 'Tap surface',
-                  sublabel: 'to place',
-                  color: AppColors.gold,
-                  onTap: null),
-        ),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Size controls — only shown after placement
+          if (_modelPlaced) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('📐', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 8),
+                  Text('Size', style: AppTextStyles.labelSmall.copyWith(color: AppColors.sand)),
+                  const SizedBox(width: 12),
+                  _SizeBtn(label: '−', onTap: () => _adjustScale(-0.1)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('${(_currentScale * 100).round()}%',
+                        style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.gold, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 8),
+                  _SizeBtn(label: '+', onTap: () => _adjustScale(0.1)),
+                  const SizedBox(width: 16),
+                  const Text('🤏 Pinch to resize', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Row(children: [
+            Expanded(
+              flex: 3,
+              child: _ActionBtn(
+                emoji: '🗺️',
+                label: 'Treasure Hunt',
+                sublabel: '${_kFacts.length} challenges',
+                color: AppColors.terra,
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            TreasureHuntScreen(monument: widget.monument))),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: _modelPlaced
+                  ? _ActionBtn(
+                      emoji: '🔄',
+                      label: 'Reset',
+                      sublabel: 'Place again',
+                      color: AppColors.muted,
+                      onTap: _resetModel)
+                  : _ActionBtn(
+                      emoji: '👆',
+                      label: 'Tap surface',
+                      sublabel: 'to place',
+                      color: AppColors.gold,
+                      onTap: null),
+            ),
+          ]),
+        ],
+      ),
     );
   }
 }
@@ -747,6 +817,32 @@ class _GlassBtn extends StatelessWidget {
             border: Border.all(color: Colors.white12),
           ),
           child: Icon(icon, color: AppColors.cream, size: 18),
+        ),
+      );
+}
+
+class _SizeBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _SizeBtn({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.gold.withValues(alpha: 0.2),
+            border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+          ),
+          child: Center(
+            child: Text(label,
+                style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+          ),
         ),
       );
 }
