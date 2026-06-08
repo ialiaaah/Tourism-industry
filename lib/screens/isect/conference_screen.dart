@@ -251,7 +251,7 @@ class _ConferenceScreenState extends State<ConferenceScreen>
                           style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
                       TextButton(
                         onPressed: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => const SignupScreen(isConference: true))),
+                            MaterialPageRoute(builder: (_) => const SignupScreen())),
                         child: Text('Register', style: GoogleFonts.inter(
                             color: kGold, fontWeight: FontWeight.bold, fontSize: 13)),
                       ),

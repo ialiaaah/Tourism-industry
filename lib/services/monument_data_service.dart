@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import '../models/ar_models.dart';
+
 // Monument model + static database with aliases for Google Vision matching
 // Add new monuments at the bottom of the `monuments` list.
 
@@ -13,6 +16,13 @@ class MonumentInfo {
   /// All name variants Google Vision might return for this monument
   final List<String> aliases;
 
+  final String? customCulturalSignificance;
+  final String? customShortDescription;
+  final List<TimelineEvent>? customTimeline;
+  final List<ARHotspot>? customARHotspots;
+  final List<TreasureHuntMission>? customTreasureHuntMissions;
+  final String? customAudioNarrationText;
+
   String get assetImage => 'assets/monuments/$id.jpg';
 
   const MonumentInfo({
@@ -25,8 +35,101 @@ class MonumentInfo {
     required this.funFacts,
     required this.emoji,
     this.aliases = const [],
+    this.customCulturalSignificance,
+    this.customShortDescription,
+    this.customTimeline,
+    this.customARHotspots,
+    this.customTreasureHuntMissions,
+    this.customAudioNarrationText,
   });
+
+  // Getters with fallbacks
+  String get shortDescription => customShortDescription ?? '$name is a legendary monument located in $location, dating back to $era.';
+  String get culturalSignificance => customCulturalSignificance ?? '$name holds enormous cultural importance as a symbol of the $era, reflecting the exceptional creativity and craftsmanship of its builders.';
+  String get audioNarrationText => customAudioNarrationText ?? 'Welcome to $name. $overview';
+
+  List<TimelineEvent> get timeline {
+    if (customTimeline != null && customTimeline!.isNotEmpty) {
+      return customTimeline!;
+    }
+    return [
+      TimelineEvent(year: 'Ancient Era', title: 'Carving & Creation', description: 'The grand structure of $name was conceived and built during the $era.'),
+      TimelineEvent(year: 'Modern Era', title: 'Restoration', description: 'Excavation and major conservation projects helped preserve its structural integrity for future generations.'),
+      TimelineEvent(year: 'Present', title: 'Unlocks in CulturaX', description: 'Interactive AR scanning brings $name directly to life for global explorers.'),
+    ];
+  }
+
+  List<ARHotspot> get arHotspots {
+    if (customARHotspots != null && customARHotspots!.isNotEmpty) {
+      return customARHotspots!;
+    }
+    return [
+      ARHotspot(
+        id: '${id}_hotspot_1',
+        title: 'Architectural Details',
+        description: 'Observe the grand scale and structural precision characteristic of $era construction.',
+        position: const Offset(0.3, 0.4),
+        type: HotspotType.architecture,
+        icon: Icons.account_balance,
+      ),
+      ARHotspot(
+        id: '${id}_hotspot_2',
+        title: 'Historical Origin',
+        description: 'Dating back to the $era, this monument witnessed pivotal moments of ancient civilization.',
+        position: const Offset(0.7, 0.35),
+        type: HotspotType.history,
+        icon: Icons.history_edu,
+      ),
+      ARHotspot(
+        id: '${id}_hotspot_3',
+        title: 'Cultural Legend',
+        description: 'Legends suggest this site was of immense ritualistic or governmental significance.',
+        position: const Offset(0.5, 0.65),
+        type: HotspotType.story,
+        icon: Icons.auto_stories,
+      ),
+      ARHotspot(
+        id: '${id}_hotspot_4',
+        title: 'Symbolic Significance',
+        description: 'The location, alignment, and carving methods hold deep solar and celestial alignments.',
+        position: const Offset(0.2, 0.7),
+        type: HotspotType.symbol,
+        icon: Icons.stars,
+      ),
+    ];
+  }
+
+  List<TreasureHuntMission> get treasureHuntMissions {
+    if (customTreasureHuntMissions != null && customTreasureHuntMissions!.isNotEmpty) {
+      return customTreasureHuntMissions!;
+    }
+    return [
+      TreasureHuntMission(
+        id: '${id}_mission_1',
+        monumentId: id,
+        title: 'Architectural Wonder',
+        clue: 'Locate the primary architectural hotspot showcasing the structural design elements.',
+        hint: 'Tap the building-like blue icon situated on the left side of the screen.',
+        correctHotspotId: '${id}_hotspot_1',
+        rewardPoints: 50,
+        badgeReward: '',
+        artifactReward: 'Ancient Blueprint',
+      ),
+      TreasureHuntMission(
+        id: '${id}_mission_2',
+        monumentId: id,
+        title: 'Unlocking History',
+        clue: 'Find the historical origin node to understand the deep cultural timelines of this site.',
+        hint: 'Look for the scroll or pen icon near the upper right of the monument.',
+        correctHotspotId: '${id}_hotspot_2',
+        rewardPoints: 75,
+        badgeReward: '',
+        artifactReward: 'Scroll of $name',
+      ),
+    ];
+  }
 }
+
 
 class MonumentDataService {
   // ── Egyptian monuments ────────────────────────────────────────────────────

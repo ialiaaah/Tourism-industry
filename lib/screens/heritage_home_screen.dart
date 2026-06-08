@@ -7,7 +7,9 @@ import 'landing_screen.dart';
 import 'tourist/ar_monument_scanner_screen.dart';
 import 'tourist/join_tour_screen.dart';
 import 'tourist/stamp_collection_screen.dart';
+import 'tourist/explorer_profile_screen.dart';
 import 'guide/create_tour_screen.dart';
+
 
 class HeritageHomeScreen extends StatelessWidget {
   const HeritageHomeScreen({super.key});
@@ -217,12 +219,12 @@ class HeritageHomeScreen extends StatelessWidget {
         ? [
             _HFeature('Create Heritage Route', Icons.add_location_rounded, _gold,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateTourScreen()))),
-            _HFeature('Heritage Scanner', Icons.camera_enhance_rounded, const Color(0xFF3DAA6B),
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARMonumentScannerScreen()))),
             _HFeature('Join a Tour', Icons.qr_code_scanner_rounded, _terra,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JoinTourScreen()))),
             _HFeature('My Stamps', Icons.military_tech_rounded, _gold,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StampCollectionScreen()))),
+            _HFeature('Explorer Profile', Icons.person_rounded, Colors.blueAccent,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExplorerProfileScreen()))),
           ]
         : [
             _HFeature('Heritage Scanner', Icons.camera_enhance_rounded, const Color(0xFF3DAA6B),
@@ -231,7 +233,10 @@ class HeritageHomeScreen extends StatelessWidget {
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JoinTourScreen()))),
             _HFeature('My Stamps', Icons.military_tech_rounded, _gold,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StampCollectionScreen()))),
+            _HFeature('Explorer Profile', Icons.person_rounded, Colors.blueAccent,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExplorerProfileScreen()))),
           ];
+
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
