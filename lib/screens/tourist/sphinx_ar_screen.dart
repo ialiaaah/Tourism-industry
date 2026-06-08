@@ -179,63 +179,40 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     _anchorMgr  = anchors;
 
     session.onInitialize(
-      showFeaturePoints: true,
-      showPlanes: true,
+      showFeaturePoints: false,
+      showPlanes: false,
       customPlaneTexturePath: null,
       showWorldOrigin: false,
     );
     objects.onInitialize();
-    session.onPlaneOrPointTap = _onPlaneTapped;
+
+    // Auto-place as soon as AR is ready — no tapping needed.
+    // Give ARKit ~1 second to initialise its session before we add the node.
+    Future.delayed(const Duration(milliseconds: 1200), _autoPlace);
   }
 
-  Future<void> _onPlaneTapped(List<ARHitTestResult> results) async {
-    if (results.isEmpty || !_modelReady) return;
+  Future<void> _autoPlace() async {
+    if (!mounted || !_modelReady || _modelPlaced) return;
 
-    final hit = results.firstWhere(
-      (r) => r.type == ARHitTestResultType.plane,
-      orElse: () => results.first,
-    );
-
-    // Extract world-space position from hit
-    final pos = hit.worldTransform.getTranslation();
-
-    if (_modelPlaced && _sphinxNode != null) {
-      // Move or re-place
-      if (_moveMode) {
-        _sphinxNode!.position = pos;
-        HapticFeedback.selectionClick();
-        setState(() {
-          _moveMode = false;
-          _hint = '🦁  Sphinx moved! Pinch to resize, twist to rotate.';
-        });
-      }
-      return;
-    }
-
-    // ── First placement ───────────────────────────────────────────────────
-    HapticFeedback.mediumImpact();
-    setState(() => _hint = '⏳  Summoning…');
-
+    // Place 1.5 m in front of the camera, at camera height (y = 0 = origin)
     final node = ARNode(
       type: NodeType.fileSystemAppFolderGLB,
       uri: 'sphinx.glb',
       scale:    vm.Vector3(_currentScale, _currentScale, _currentScale),
-      position: pos,
-      // Rotate 90° around Y so the long body points away from user (depth)
-      // and fix upright: no X rotation needed (model is already Y-up)
+      position: vm.Vector3(0.0, -0.3, -1.5), // slightly below eye, 1.5 m ahead
       rotation: vm.Vector4(0.0, 1.0, 0.0, _currentRotY),
     );
 
     final placed = await _objectMgr?.addNode(node);
+    if (!mounted) return;
+
     if (placed == true) {
       _sphinxNode = node;
-      if (mounted) {
-        Provider.of<GameProgressService>(context, listen: false)
-            .scanMonument(widget.monument.id);
-      }
+      Provider.of<GameProgressService>(context, listen: false)
+          .scanMonument(widget.monument.id);
       setState(() {
         _modelPlaced       = true;
-        _hint              = '🦁  Sphinx placed! Pinch=resize  Twist=rotate  📐 buttons=size';
+        _hint              = '🦁  Pinch = resize  •  Twist = rotate  •  ✋ Move = reposition';
         _showWelcomeBanner = true;
       });
       HapticFeedback.heavyImpact();
@@ -250,7 +227,8 @@ class _SphinxARScreenState extends State<SphinxARScreen>
         }
       });
     } else {
-      setState(() => _hint = '⚠️  Couldn\'t load model — try tapping again.');
+      // GLB might not be ready yet — retry once more after a short wait
+      Future.delayed(const Duration(seconds: 2), _autoPlace);
     }
   }
 
@@ -260,14 +238,16 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       _sphinxNode = null;
     }
     setState(() {
-      _modelPlaced    = false;
-      _moveMode       = false;
-      _currentScale   = 0.8;
-      _currentRotY    = math.pi / 2;
+      _modelPlaced      = false;
+      _moveMode         = false;
+      _currentScale     = 0.8;
+      _currentRotY      = math.pi / 2;
       _gestureBaseScale = 0.8;
       _gestureBaseRotY  = math.pi / 2;
-      _hint = '✨  Scan a flat surface, then tap to place the Sphinx again!';
+      _hint = '⏳  Re-summoning the Sphinx…';
     });
+    // Re-place automatically
+    Future.delayed(const Duration(milliseconds: 600), _autoPlace);
   }
 
   // ── Gesture: pinch = scale, twist = rotate Y ─────────────────────────────
@@ -304,6 +284,17 @@ class _SphinxARScreenState extends State<SphinxARScreen>
     _sphinxNode!.transform = vm.Matrix4.compose(pos, q, s);
     HapticFeedback.selectionClick();
     setState(() {});
+  }
+
+  // Single-finger drag moves the sphinx when move-mode is active
+  void _onDragMove(DragUpdateDetails details) {
+    if (_sphinxNode == null || !_modelPlaced || !_moveMode) return;
+    // Map screen pixels → world units at roughly the model's distance
+    const sensitivity = 0.004;
+    final dx = details.delta.dx * sensitivity;
+    final dz = details.delta.dy * sensitivity; // screen-Y → world-Z (depth)
+    final cur = _sphinxNode!.position;
+    _sphinxNode!.position = vm.Vector3(cur.x + dx, cur.y, cur.z + dz);
   }
 
   void _rotateY(double delta) {
@@ -344,11 +335,15 @@ class _SphinxARScreenState extends State<SphinxARScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ① AR camera fills screen — pinch=scale, two-finger-twist=rotate
+          // ① AR camera fills screen
+          // Single-finger drag → move sphinx (when _moveMode)
+          // Two-finger pinch  → scale
+          // Two-finger twist  → rotate Y
           GestureDetector(
             onScaleStart: _onGestureStart,
             onScaleUpdate: _onGestureUpdate,
             onScaleEnd: _onGestureEnd,
+            onPanUpdate: _onDragMove,
             child: ARView(
               onARViewCreated: _onARViewCreated,
               planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
@@ -370,11 +365,18 @@ class _SphinxARScreenState extends State<SphinxARScreen>
             ),
           ),
 
-          // ③ Scan ring before placement
-          if (!_modelPlaced && !_moveMode)
-            Center(child: _buildScanRing()),
+          // ③ Loading indicator before auto-place completes
+          if (!_modelPlaced)
+            Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                const SizedBox(height: 12),
+                Text('Summoning the Sphinx…',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.gold)),
+              ]),
+            ),
 
-          // ④ Placing spinner
+          // ④ Move-mode crosshair
           if (_moveMode)
             Center(
               child: Container(
