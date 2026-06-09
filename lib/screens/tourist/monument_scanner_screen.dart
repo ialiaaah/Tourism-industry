@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import '../../models/models.dart';
+import '../../services/monument_data_service.dart';
+import 'ar_experience_screen.dart';
 import 'ai_helper_stub.dart'
     if (dart.library.html) 'ai_helper_web.dart'
     if (dart.library.io) 'ai_helper_native.dart';
 
 class MonumentScannerScreen extends StatefulWidget {
   final Stop stop;
-
   const MonumentScannerScreen({Key? key, required this.stop}) : super(key: key);
 
   @override
@@ -19,6 +21,16 @@ class MonumentScannerScreen extends StatefulWidget {
 }
 
 class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
+  // ── Palette ────────────────────────────────────────────────────────────────
+  static const _bg      = Color(0xFF1E1308);
+  static const _card    = Color(0xFF2E1E0C);
+  static const _cardAlt = Color(0xFF3A2410);
+  static const _gold    = Color(0xFFDFAF58);
+  static const _terra   = Color(0xFFD4581E);
+  static const _cream   = Color(0xFFF5EDD8);
+  static const _sand    = Color(0xFFE0C896);
+  static const _muted   = Color(0xFF8A7560);
+
   final ImagePicker _picker = ImagePicker();
   XFile? _photo;
   Uint8List? _webImageBytes;
@@ -41,20 +53,16 @@ class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
         _photo = photo;
         _isProcessing = true;
       });
-
-      // Read bytes for web display
       if (kIsWeb) {
         final bytes = await photo.readAsBytes();
         setState(() => _webImageBytes = bytes);
       }
-
       try {
-        _inferenceResult = await _aiHelper.analyzeImage(photo, widget.stop.name);
+        _inferenceResult =
+            await _aiHelper.analyzeImage(photo, widget.stop.name);
       } catch (e) {
-        debugPrint('Inference error: $e');
         _inferenceResult = widget.stop.name;
       }
-
       setState(() => _isProcessing = false);
       _showARSummary();
     }
@@ -76,16 +84,14 @@ class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
   }
 
   Future<void> _captureFromLiveCamera() async {
-    // Close live camera and trigger AI analysis with the stop name
     _closeLiveCamera();
     setState(() => _isProcessing = true);
-
     try {
-      _inferenceResult = await _aiHelper.analyzeImage(null, widget.stop.name);
+      _inferenceResult =
+          await _aiHelper.analyzeImage(null, widget.stop.name);
     } catch (e) {
       _inferenceResult = widget.stop.name;
     }
-
     setState(() => _isProcessing = false);
     _showARSummary();
   }
@@ -98,99 +104,155 @@ class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
   }
 
   void _showARSummary() {
+    final identified = _inferenceResult ?? widget.stop.name;
+    final monument = MonumentDataService.findByDetectedName(identified) ??
+        MonumentDataService.findByDetectedName(widget.stop.name);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.check_circle_outline, color: Color(0xFFCBA153), size: 28),
-                    SizedBox(width: 8),
-                    Text(
-                      'Scan Complete',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F1B29)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Identified: ${_inferenceResult ?? widget.stop.name}',
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Historical Snippet:',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F1B29)),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.stop.arSnippet ?? 'Fascinating details are hidden here...',
-                  style: const TextStyle(fontSize: 16, height: 1.5),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        decoration: const BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBA153).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFCBA153).withValues(alpha: 0.5)),
+                    color: _muted.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: const Row(
+                ),
+              ),
+
+              // ── "Identified" header ──────────────────────────────────────
+              Row(children: [
+                const Icon(Icons.check_circle_rounded, color: _gold, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.record_voice_over, color: Color(0xFFCBA153), size: 32),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          'Want to know more? Ask your tour guide for the full story and hidden secrets!',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF0F1B29),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                      Text('Monument Identified!',
+                          style: GoogleFonts.playfairDisplay(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: _cream)),
+                      Text(identified,
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: _muted)),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Back to Scanner'),
+              ]),
+
+              const SizedBox(height: 20),
+
+              // ── Historical snippet ────────────────────────────────────────
+              if ((widget.stop.arSnippet ?? '').isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _cardAlt,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: _gold.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.history_edu,
+                            color: _gold, size: 16),
+                        const SizedBox(width: 6),
+                        Text('Historical Snippet',
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: _sand)),
+                      ]),
+                      const SizedBox(height: 10),
+                      Text(widget.stop.arSnippet!,
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              height: 1.6,
+                              color: _cream)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
               ],
-            ),
+
+              // ── Primary: open full AR experience ─────────────────────────
+              if (monument != null) ...[
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.view_in_ar),
+                  label: Text('Open Full AR Experience',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    backgroundColor: _terra,
+                    foregroundColor: _cream,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              ARExperienceScreen(monument: monument)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // ── Secondary: scan another ───────────────────────────────────
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  side: BorderSide(color: _gold.withValues(alpha: 0.6)),
+                  foregroundColor: _gold,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () => Navigator.pop(sheetContext),
+                child: Text('Scan Another',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Live camera mode
+    // ── Live camera view ──────────────────────────────────────────────────
     if (_isLiveCameraOpen && _cameraController != null) {
       return Scaffold(
+        backgroundColor: Colors.black,
         appBar: AppBar(
-          title: const Text('Live Camera'),
+          backgroundColor: Colors.black,
+          foregroundColor: _cream,
+          title: Text('Live Camera',
+              style: GoogleFonts.inter(color: _cream)),
           leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: _closeLiveCamera,
@@ -200,29 +262,38 @@ class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
           children: [
             MobileScanner(
               controller: _cameraController!,
-              onDetect: (_) {}, // We don't need barcode detection here
+              onDetect: (_) {},
             ),
-            // Overlay with monument info
+            // Target info banner
             Positioned(
               top: 16,
               left: 16,
               right: 16,
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.black54,
+                  color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: _gold.withValues(alpha: 0.4)),
                 ),
-                child: Text(
-                  'Point at: ${widget.stop.name}',
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
+                child: Row(children: [
+                  const Icon(Icons.camera_enhance, color: _gold, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Point at: ${widget.stop.name}',
+                        style: GoogleFonts.inter(
+                            color: _cream,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ]),
               ),
             ),
             // Capture button
             Positioned(
-              bottom: 40,
+              bottom: 48,
               left: 0,
               right: 0,
               child: Center(
@@ -233,10 +304,11 @@ class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
                     height: 72,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white,
-                      border: Border.all(color: const Color(0xFFCBA153), width: 4),
+                      color: _cream,
+                      border: Border.all(color: _gold, width: 4),
                     ),
-                    child: const Icon(Icons.camera, size: 36, color: Color(0xFF0F1B29)),
+                    child: const Icon(Icons.camera,
+                        size: 36, color: _bg),
                   ),
                 ),
               ),
@@ -246,99 +318,141 @@ class _MonumentScannerScreenState extends State<MonumentScannerScreen> {
       );
     }
 
+    // ── Main scanner screen ───────────────────────────────────────────────
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Monument')),
-      body: Center(
-        child: _isProcessing
-            ? Column(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _card,
+        foregroundColor: _cream,
+        elevation: 0,
+        title: Text('Scan Monument',
+            style: GoogleFonts.playfairDisplay(
+                color: _gold, fontWeight: FontWeight.bold, fontSize: 20)),
+        centerTitle: true,
+      ),
+      body: _isProcessing
+          ? Center(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(color: Color(0xFFCBA153)),
+                  const CircularProgressIndicator(color: _gold),
                   const SizedBox(height: 20),
-                  const Text('Scanning monument...',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text('Scanning monument…',
+                      style: GoogleFonts.inter(
+                          color: _cream,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  Text(
-                    'Identifying historical landmarks...',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text('Identifying historical landmarks…',
+                      style: GoogleFonts.inter(
+                          color: _muted, fontSize: 12)),
                 ],
-              )
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_photo != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: kIsWeb && _webImageBytes != null
-                              ? Image.memory(
-                                  _webImageBytes!,
-                                  height: 300,
-                                  fit: BoxFit.cover,
-                                )
-                              : Image.file(
-                                  File(_photo!.path),
-                                  height: 300,
-                                  fit: BoxFit.cover,
-                                ),
-                        )
-                      else
-                        Container(
-                          height: 280,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0F1B29), Color(0xFF1A2A3A)],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Photo preview / placeholder ────────────────────────
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: _photo != null
+                        ? (kIsWeb && _webImageBytes != null
+                            ? Image.memory(_webImageBytes!,
+                                height: 280, fit: BoxFit.cover)
+                            : Image.file(File(_photo!.path),
+                                height: 280, fit: BoxFit.cover))
+                        : Container(
+                            height: 280,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [_bg, _card],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.camera_enhance, size: 80, color: Color(0xFFCBA153)),
-                                SizedBox(height: 16),
+                                const Icon(Icons.camera_enhance,
+                                    size: 80, color: _gold),
+                                const SizedBox(height: 16),
                                 Text(
-                                  'Take or upload a photo\nof the monument',
+                                  'Point at the monument\nand capture a photo',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                                  style: GoogleFonts.inter(
+                                      color: _muted, fontSize: 15),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 24),
-                      // Primary: Open live camera
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.videocam),
-                        label: const Text('Open Live Camera'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: const Color(0xFF0F1B29),
-                          foregroundColor: const Color(0xFFCBA153),
-                        ),
-                        onPressed: _openLiveCamera,
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Upload from Gallery'),
-                        style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16)),
-                        onPressed: () => _takePicture(ImageSource.gallery),
-                      ),
-                    ],
                   ),
-                ),
+                  const SizedBox(height: 28),
+
+                  // ── Stop name badge ────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: _gold.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.location_on_rounded,
+                          color: _terra, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Current stop: ${widget.stop.name}',
+                          style: GoogleFonts.inter(
+                              color: _sand,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Open live camera button ────────────────────────────
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.videocam_rounded),
+                    label: Text('Open Live Camera',
+                        style: GoogleFonts.inter(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _terra,
+                      foregroundColor: _cream,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    onPressed: _openLiveCamera,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Upload from gallery button ─────────────────────────
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.photo_library_rounded),
+                    label: Text('Upload from Gallery',
+                        style: GoogleFonts.inter(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      side: BorderSide(color: _gold.withValues(alpha: 0.6)),
+                      foregroundColor: _gold,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => _takePicture(ImageSource.gallery),
+                  ),
+                ],
               ),
-      ),
+            ),
     );
   }
 }
