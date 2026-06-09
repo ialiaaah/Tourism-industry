@@ -3,10 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../services/firestore_service.dart';
-import '../../services/monument_data_service.dart';
 import 'ask_question_screen.dart';
-import 'ar_experience_screen.dart';
-import 'monument_scanner_screen.dart';
 
 class StopDetailsScreen extends StatefulWidget {
   final Stop stop;
@@ -31,7 +28,7 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
   bool _quizAnswered = false;
 
   // ── Quiz submission ──────────────────────────────────────────────────────────
-  Future<void> _submitQuiz(BuildContext context) async {
+  Future<void> _submitQuiz() async {
     if (_selectedAnswerIndex == null) return;
     final service = context.read<FirestoreService>();
     final isCorrect = await service.submitQuizAnswer(
@@ -93,22 +90,11 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
     );
   }
 
-  // ── Navigate to scanner or AR ────────────────────────────────────────────────
-  void _openScannerOrAR() {
-    final monument = MonumentDataService.findByDetectedName(widget.stop.name);
-    if (monument != null) {
-      Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ARExperienceScreen(monument: monument)));
-    } else {
-      Navigator.push(context,
-          MaterialPageRoute(builder: (_) => MonumentScannerScreen(stop: widget.stop)));
-    }
-  }
-
   // ── Hero image ───────────────────────────────────────────────────────────────
   Widget _buildHeroImage() {
     final imgPath = widget.stop.imagePath;
-    final isNetwork = imgPath.startsWith('http://') || imgPath.startsWith('https://');
+    final isNetwork =
+        imgPath.startsWith('http://') || imgPath.startsWith('https://');
 
     Widget imageWidget;
     if (isNetwork) {
@@ -146,20 +132,21 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
       fit: StackFit.expand,
       children: [
         imageWidget,
+        // Gradient so stop name is readable
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Colors.transparent, Colors.black87],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              stops: [0.4, 1.0],
+              stops: [0.45, 1.0],
             ),
           ),
         ),
         Positioned(
-          bottom: 16,
-          left: 16,
-          right: 16,
+          bottom: 18,
+          left: 18,
+          right: 18,
           child: Text(
             widget.stop.name,
             style: GoogleFonts.playfairDisplay(
@@ -188,11 +175,16 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
         children: [
           const Icon(Icons.account_balance, size: 72, color: _gold),
           const SizedBox(height: 12),
-          Text(
-            widget.stop.name,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.playfairDisplay(
-                color: _cream, fontSize: 22, fontWeight: FontWeight.bold),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              widget.stop.name,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.playfairDisplay(
+                  color: _cream,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -201,16 +193,15 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final service        = context.watch<FirestoreService>();
-    final alreadyHasStamp = service.collectedStamps.any((s) => s.stopId == widget.stop.id);
-    final monument       = MonumentDataService.findByDetectedName(widget.stop.name);
-    final hasAR          = monument != null;
+    final service         = context.watch<FirestoreService>();
+    final alreadyHasStamp =
+        service.collectedStamps.any((s) => s.stopId == widget.stop.id);
 
     return Scaffold(
       backgroundColor: _bg,
       body: CustomScrollView(
         slivers: [
-          // ── Collapsing hero ────────────────────────────────────────────────
+          // ── Collapsing hero ─────────────────────────────────────────────────
           SliverAppBar(
             expandedHeight: 260,
             pinned: true,
@@ -221,50 +212,29 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
 
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 24),
-
-                  // ── Description ──────────────────────────────────────────
+                  // ── Description ────────────────────────────────────────────
                   Text(
                     widget.stop.description,
                     style: GoogleFonts.inter(
-                        fontSize: 15, height: 1.7, color: _sand),
+                        fontSize: 15, height: 1.75, color: _sand),
                   ),
 
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // ── AR / Scanner button ───────────────────────────────────
-                  ElevatedButton.icon(
-                    icon: Icon(hasAR ? Icons.view_in_ar : Icons.camera_enhance),
-                    label: Text(
-                      hasAR ? 'View AR Experience' : 'Scan Monument',
-                      style: GoogleFonts.inter(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _terra,
-                      foregroundColor: _cream,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      elevation: 0,
-                    ),
-                    onPressed: _openScannerOrAR,
-                  ),
-                  const SizedBox(height: 10),
-
-                  // ── Ask guide ─────────────────────────────────────────────
+                  // ── Ask guide button ────────────────────────────────────────
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.help_outline),
+                    icon: const Icon(Icons.help_outline_rounded),
                     label: Text('Ask the Guide a Question',
                         style: GoogleFonts.inter(
                             fontSize: 15, fontWeight: FontWeight.w600)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      side: BorderSide(color: _gold.withValues(alpha: 0.6)),
+                      side: BorderSide(
+                          color: _gold.withValues(alpha: 0.6)),
                       foregroundColor: _gold,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
@@ -280,17 +250,16 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
                     ),
                   ),
 
-                  // ── Divider ───────────────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 28),
-                    child: Divider(
-                        color: _cardAlt.withValues(alpha: 0.8), height: 1),
-                  ),
-
-                  // ── Quiz Section ─────────────────────────────────────────
-                  if (widget.stop.quiz != null) _buildQuiz(alreadyHasStamp),
-
-                  const SizedBox(height: 48),
+                  // ── Quiz section ────────────────────────────────────────────
+                  if (widget.stop.quiz != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      child: Divider(
+                          color: _cardAlt.withValues(alpha: 0.8),
+                          height: 1),
+                    ),
+                    _buildQuiz(alreadyHasStamp),
+                  ],
                 ],
               ),
             ),
@@ -344,24 +313,24 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
 
           // Options
           ...List.generate(quiz.options.length, (index) {
-            final isCorrect = index == quiz.correctOptionIndex;
+            final isCorrect  = index == quiz.correctOptionIndex;
             final isSelected = _selectedAnswerIndex == index;
-            final answered = _quizAnswered || alreadyHasStamp;
+            final answered   = _quizAnswered || alreadyHasStamp;
 
             Color borderColor = _cardAlt;
-            Color bgColor = Colors.transparent;
+            Color bgColor     = Colors.transparent;
 
             if (answered) {
               if (isCorrect) {
                 borderColor = const Color(0xFF4CAF50);
-                bgColor = const Color(0xFF4CAF50).withValues(alpha: 0.1);
+                bgColor     = const Color(0xFF4CAF50).withValues(alpha: 0.1);
               } else if (isSelected) {
                 borderColor = _terra;
-                bgColor = _terra.withValues(alpha: 0.1);
+                bgColor     = _terra.withValues(alpha: 0.1);
               }
             } else if (isSelected) {
               borderColor = _gold;
-              bgColor = _gold.withValues(alpha: 0.08);
+              bgColor     = _gold.withValues(alpha: 0.08);
             }
 
             return GestureDetector(
@@ -373,7 +342,9 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: bgColor,
-                  border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+                  border: Border.all(
+                      color: borderColor,
+                      width: isSelected && !answered ? 2 : 1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(children: [
@@ -381,7 +352,9 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
                     answered
                         ? (isCorrect
                             ? Icons.check_circle
-                            : (isSelected ? Icons.cancel : Icons.radio_button_off))
+                            : (isSelected
+                                ? Icons.cancel
+                                : Icons.radio_button_off))
                         : (isSelected
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off),
@@ -395,8 +368,8 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(quiz.options[index],
-                        style: GoogleFonts.inter(
-                            color: _cream, fontSize: 14)),
+                        style:
+                            GoogleFonts.inter(color: _cream, fontSize: 14)),
                   ),
                 ]),
               ),
@@ -405,7 +378,6 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
 
           const SizedBox(height: 8),
 
-          // Submit / stamp-already state
           if (!_quizAnswered && !alreadyHasStamp)
             SizedBox(
               width: double.infinity,
@@ -418,11 +390,11 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
                       borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                onPressed: _selectedAnswerIndex == null
-                    ? null
-                    : () => _submitQuiz(context),
+                onPressed:
+                    _selectedAnswerIndex == null ? null : _submitQuiz,
                 child: Text('Submit Answer',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                    style:
+                        GoogleFonts.inter(fontWeight: FontWeight.bold)),
               ),
             ),
 
