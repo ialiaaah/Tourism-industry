@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image/image.dart' as img;
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import '../../models/models.dart';
 
 class AddStopScreen extends StatefulWidget {
@@ -102,28 +103,24 @@ class _AddStopScreenState extends State<AddStopScreen> {
     }
   }
 
-  Future<String?> _uploadImage(String stopId) async {
+  // Compress and convert image to base64 — no Firebase Storage needed
+  Future<String?> _encodeImage() async {
     if (_pickedFile == null) return null;
     setState(() => _isUploading = true);
     try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('stop_images')
-          .child('${stopId}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final bytes = kIsWeb
+          ? (_webImageBytes ?? await _pickedFile!.readAsBytes())
+          : await File(_pickedFile!.path).readAsBytes();
 
-      UploadTask task;
-      if (kIsWeb) {
-        final bytes = _webImageBytes ?? await _pickedFile!.readAsBytes();
-        task = ref.putData(bytes,
-            SettableMetadata(contentType: 'image/jpeg'));
-      } else {
-        task = ref.putFile(File(_pickedFile!.path));
-      }
+      // Decode, resize to max 600px wide, re-encode as JPEG at quality 70
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return null;
+      final resized = img.copyResize(decoded, width: decoded.width > 600 ? 600 : decoded.width);
+      final compressed = img.encodeJpg(resized, quality: 70);
 
-      final snapshot = await task;
-      return await snapshot.ref.getDownloadURL();
+      return 'data:image/jpeg;base64,${base64Encode(compressed)}';
     } catch (e) {
-      debugPrint('⚠️ Image upload failed: $e');
+      debugPrint('⚠️ Image encoding failed: $e');
       return null;
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -221,7 +218,7 @@ class _AddStopScreenState extends State<AddStopScreen> {
     }
 
     final stopId = 'stop_${DateTime.now().millisecondsSinceEpoch}';
-    final imageUrl = await _uploadImage(stopId) ?? '';
+    final imageUrl = await _encodeImage() ?? '';
 
     final newStop = Stop(
       id: stopId,
@@ -403,7 +400,7 @@ class _AddStopScreenState extends State<AddStopScreen> {
                     )
                   : const Icon(Icons.check_rounded),
               label: Text(
-                _isUploading ? 'Uploading image…' : 'Save Stop',
+                _isUploading ? 'Processing image…' : 'Save Stop',
                 style: GoogleFonts.inter(
                     fontSize: 16, fontWeight: FontWeight.bold),
               ),

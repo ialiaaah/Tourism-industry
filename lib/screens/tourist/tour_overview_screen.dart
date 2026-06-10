@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../../models/models.dart';
 import '../../services/firestore_service.dart';
 import 'stop_details_screen.dart';
@@ -18,8 +19,27 @@ const _muted = Color(0xFF8A7560);
 
 // ── Public helper used by StopDetailsScreen too ──────────────────────────────
 Widget buildStopThumbnail(String imagePath, {double size = 60}) {
-  final isNetwork =
-      imagePath.startsWith('http://') || imagePath.startsWith('https://');
+  final isBase64  = imagePath.startsWith('data:image');
+  final isNetwork = imagePath.startsWith('http://') || imagePath.startsWith('https://');
+
+  if (isBase64) {
+    try {
+      final base64Str = imagePath.contains(',') ? imagePath.split(',').last : imagePath;
+      final bytes = base64Decode(base64Str);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.memory(
+          bytes,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fallbackThumbnail(size),
+        ),
+      );
+    } catch (_) {
+      return _fallbackThumbnail(size);
+    }
+  }
 
   if (isNetwork) {
     return ClipRRect(

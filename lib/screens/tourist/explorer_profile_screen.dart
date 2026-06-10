@@ -8,106 +8,93 @@ import '../../models/ar_models.dart';
 class ExplorerProfileScreen extends StatelessWidget {
   const ExplorerProfileScreen({super.key});
 
+  // ── Palette ────────────────────────────────────────────────────────────────
+  static const _bg      = Color(0xFF1E1308);
+  static const _card    = Color(0xFF2E1E0C);
+  static const _cardAlt = Color(0xFF3A2410);
+  static const _gold    = Color(0xFFDFAF58);
+  static const _terra   = Color(0xFFD4581E);
+  static const _cream   = Color(0xFFF5EDD8);
+  static const _sand    = Color(0xFFE0C896);
+  static const _muted   = Color(0xFF8A7560);
+
   @override
   Widget build(BuildContext context) {
     final progress = Provider.of<GameProgressService>(context);
 
-    // Calculate level based on points
-    final int points = progress.totalPoints;
-    final int level = (points / 200).floor() + 1;
+    final int points       = progress.totalPoints;
+    final int level        = (points / 200).floor() + 1;
     final int pointsToNext = 200 - (points % 200);
-    final double percentToNext = (points % 200) / 200.0;
+    final double pct       = (points % 200) / 200.0;
 
     String rank = 'Novice Explorer';
-    if (level >= 10) rank = 'Ancient Legend';
+    if (level >= 10)     rank = 'Ancient Legend';
     else if (level >= 7) rank = 'Master Historian';
     else if (level >= 4) rank = 'Grand Adventurer';
     else if (level >= 2) rank = 'Avid Chronicle-Keeper';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B19),
+      backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: _card,
+        foregroundColor: _cream,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
-          'EXPLORER PROFILE',
-          style: GoogleFonts.spaceMono(
-            color: Colors.white,
+          'Explorer Profile',
+          style: GoogleFonts.playfairDisplay(
+            color: _gold,
             fontWeight: FontWeight.bold,
-            letterSpacing: 2.0,
-            fontSize: 16,
+            fontSize: 20,
           ),
         ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 10),
-
-              // ── Header Profile Card ────────────────────────────────────────
-              _buildProfileCard(rank, level, points, percentToNext, pointsToNext, progress.currentStreak),
-
-              const SizedBox(height: 24),
-
-              // ── Statistics Row ─────────────────────────────────────────────
-              _buildStatsRow(progress),
-
-              const SizedBox(height: 30),
-
-              // ── Badge Showcase ─────────────────────────────────────────────
-              _buildBadgeSection(context, progress.badges),
-
-              const SizedBox(height: 30),
-
-              // ── Digital Artifacts ──────────────────────────────────────────
-              _buildArtifactsSection(context, progress.collectedArtifacts),
-
-              const SizedBox(height: 30),
-
-              // ── Scanned Monuments ──────────────────────────────────────────
-              _buildScannedMonumentsSection(context, progress),
-              
-              const SizedBox(height: 40),
-            ],
-          ),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildProfileCard(rank, level, points, pct, pointsToNext, progress.currentStreak),
+            const SizedBox(height: 24),
+            _buildStatsRow(progress),
+            const SizedBox(height: 28),
+            _buildBadgeSection(progress.badges),
+            const SizedBox(height: 28),
+            _buildArtifactsSection(progress.collectedArtifacts),
+            const SizedBox(height: 28),
+            _buildScannedMonumentsSection(context, progress),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileCard(
-      String rank, int level, int points, double percentToNext, int pointsToNext, int streak) {
+  // ── Profile card ────────────────────────────────────────────────────────────
+  Widget _buildProfileCard(String rank, int level, int points,
+      double pct, int pointsToNext, int streak) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C36),
+        color: _card,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDFAF58).withOpacity(0.3), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 15, spreadRadius: 2),
-        ],
+        border: Border.all(color: _gold.withValues(alpha: 0.35), width: 1.5),
       ),
       child: Column(
         children: [
           Row(
             children: [
+              // Avatar
               Container(
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFDFAF58), width: 2),
+                  border: Border.all(color: _gold, width: 2),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+                    colors: [Color(0xFF3A2410), Color(0xFF2E1E0C)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
                 child: const Center(
@@ -115,25 +102,26 @@ class ExplorerProfileScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
+              // Level + rank
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Adventure Level $level',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 20,
+                      style: GoogleFonts.playfairDisplay(
+                        color: _cream,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      rank.toUpperCase(),
-                      style: GoogleFonts.spaceMono(
-                        color: const Color(0xFFDFAF58),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                      rank,
+                      style: GoogleFonts.inter(
+                        color: _gold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -143,18 +131,19 @@ class ExplorerProfileScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.deepOrange.withOpacity(0.15),
+                  color: _terra.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.deepOrange.withOpacity(0.3)),
+                  border: Border.all(color: _terra.withValues(alpha: 0.4)),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_fire_department, color: Colors.deepOrange, size: 16),
+                    const Icon(Icons.local_fire_department, color: _terra, size: 16),
                     const SizedBox(width: 4),
                     Text(
                       '$streak d',
-                      style: GoogleFonts.spaceMono(
-                        color: Colors.deepOrange,
+                      style: GoogleFonts.inter(
+                        color: _terra,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -165,29 +154,28 @@ class ExplorerProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-
-          // Experience progress bar
+          // XP progress bar
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '$points XP TOTAL',
-                style: GoogleFonts.spaceMono(color: Colors.white54, fontSize: 10),
+                '$points XP total',
+                style: GoogleFonts.inter(color: _muted, fontSize: 11),
               ),
               Text(
-                'Next Level in $pointsToNext XP',
-                style: GoogleFonts.spaceMono(color: const Color(0xFF4CD87A), fontSize: 10),
+                '$pointsToNext XP to next level',
+                style: GoogleFonts.inter(color: _sand, fontSize: 11),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: percentToNext,
+              value: pct,
               minHeight: 10,
-              backgroundColor: Colors.white10,
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4CD87A)),
+              backgroundColor: _cardAlt,
+              valueColor: const AlwaysStoppedAnimation<Color>(_gold),
             ),
           ),
         ],
@@ -195,14 +183,15 @@ class ExplorerProfileScreen extends StatelessWidget {
     );
   }
 
+  // ── Stats row ───────────────────────────────────────────────────────────────
   Widget _buildStatsRow(GameProgressService progress) {
     return Row(
       children: [
-        _buildStatItem('MONUMENTS', '${progress.scannedMonuments.length}', Icons.location_on),
-        const SizedBox(width: 12),
-        _buildStatItem('MISSIONS', '${progress.completedMissions.length}', Icons.military_tech),
-        const SizedBox(width: 12),
-        _buildStatItem('BADGES', '${progress.badges.length}', Icons.workspace_premium),
+        _buildStatItem('Monuments', '${progress.scannedMonuments.length}', Icons.location_on_rounded),
+        const SizedBox(width: 10),
+        _buildStatItem('Missions',  '${progress.completedMissions.length}', Icons.military_tech_rounded),
+        const SizedBox(width: 10),
+        _buildStatItem('Badges',    '${progress.badges.length}', Icons.workspace_premium_rounded),
       ],
     );
   }
@@ -212,29 +201,29 @@ class ExplorerProfileScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF10192E),
+          color: _card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: _cardAlt),
         ),
         child: Column(
           children: [
-            Icon(icon, color: const Color(0xFFDFAF58), size: 24),
+            Icon(icon, color: _gold, size: 22),
             const SizedBox(height: 8),
             Text(
               value,
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontSize: 18,
+              style: GoogleFonts.playfairDisplay(
+                color: _cream,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: GoogleFonts.spaceMono(
-                color: Colors.white30,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: GoogleFonts.inter(
+                color: _muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -243,113 +232,112 @@ class ExplorerProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBadgeSection(BuildContext context, List<Badge> badges) {
+  // ── Badges ──────────────────────────────────────────────────────────────────
+  Widget _buildBadgeSection(List<Badge> badges) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('MY BADGES', '${badges.length} EARNED'),
+        _buildSectionHeader('My Badges', '${badges.length} earned'),
         const SizedBox(height: 12),
-        if (badges.isEmpty)
-          _buildEmptyPlaceholder('No badges unlocked yet. Keep scanning!')
-        else
-          SizedBox(
-            height: 90,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: badges.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final badge = badges[index];
-                return Container(
-                  width: 90,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10192E),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _getBorderColorForRarity(badge.rarity)),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('🏆', style: TextStyle(fontSize: 24)),
-                      const SizedBox(height: 4),
-                      Text(
-                        badge.name,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+        badges.isEmpty
+            ? _buildEmptyPlaceholder('No badges yet — keep scanning monuments!')
+            : SizedBox(
+                height: 96,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: badges.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) {
+                    final badge = badges[i];
+                    return Container(
+                      width: 88,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: _rarityColor(badge.rarity).withValues(alpha: 0.6)),
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('🏆', style: TextStyle(fontSize: 26)),
+                          const SizedBox(height: 6),
+                          Text(
+                            badge.name,
+                            style: GoogleFonts.inter(
+                              color: _cream,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
       ],
     );
   }
 
-  Widget _buildArtifactsSection(BuildContext context, List<DigitalArtifact> artifacts) {
+  // ── Artifacts ───────────────────────────────────────────────────────────────
+  Widget _buildArtifactsSection(List<DigitalArtifact> artifacts) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('DIGITAL ARTIFACTS', '${artifacts.length} DISCOVERED'),
+        _buildSectionHeader('Digital Artefacts', '${artifacts.length} discovered'),
         const SizedBox(height: 12),
-        if (artifacts.isEmpty)
-          _buildEmptyPlaceholder('Solve treasure hunt clues to locate artifacts.')
-        else
-          SizedBox(
-            height: 90,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: artifacts.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final art = artifacts[index];
-                return Container(
-                  width: 90,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10192E),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        art.emoji,
-                        style: const TextStyle(fontSize: 28),
+        artifacts.isEmpty
+            ? _buildEmptyPlaceholder('Solve treasure hunt clues to collect artefacts.')
+            : SizedBox(
+                height: 96,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: artifacts.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) {
+                    final art = artifacts[i];
+                    return Container(
+                      width: 88,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _gold.withValues(alpha: 0.3)),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        art.name,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(art.emoji, style: const TextStyle(fontSize: 28)),
+                          const SizedBox(height: 6),
+                          Text(
+                            art.name,
+                            style: GoogleFonts.inter(
+                              color: _cream,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+                    );
+                  },
+                ),
+              ),
       ],
     );
   }
 
-  Widget _buildScannedMonumentsSection(BuildContext context, GameProgressService progress) {
-    // Fetch information for scanned monuments
+  // ── Scanned monuments ───────────────────────────────────────────────────────
+  Widget _buildScannedMonumentsSection(
+      BuildContext context, GameProgressService progress) {
     final scannedList = MonumentDataService.monuments
         .where((m) => progress.scannedMonuments.contains(m.id))
         .toList();
@@ -357,111 +345,113 @@ class ExplorerProfileScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('COLLECTED MONUMENTS', '${scannedList.length} VISITED'),
+        _buildSectionHeader('Visited Monuments', '${scannedList.length} scanned'),
         const SizedBox(height: 12),
-        if (scannedList.isEmpty)
-          _buildEmptyPlaceholder('No monuments scanned yet. Use AR to scan!')
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: scannedList.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final monument = scannedList[index];
-              final scorePercent = progress.getMonumentProgress(monument.id);
-
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10192E),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        monument.assetImage,
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, e, s) => Container(color: Colors.white10, width: 50, height: 50),
-                      ),
+        scannedList.isEmpty
+            ? _buildEmptyPlaceholder('No monuments scanned yet. Use the Heritage Scanner!')
+            : ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: scannedList.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) {
+                  final monument   = scannedList[i];
+                  final scorePercent = progress.getMonumentProgress(monument.id);
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: _card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _cardAlt),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            monument.name,
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            monument.location,
-                            style: GoogleFonts.outfit(
-                              color: Colors.white54,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Row(
                       children: [
-                        Text(
-                          '${(scorePercent * 100).toInt()}% Done',
-                          style: GoogleFonts.spaceMono(
-                            color: const Color(0xFF4CD87A),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            monument.assetImage,
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: _cardAlt,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.account_balance,
+                                  color: _gold, size: 26),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                monument.name,
+                                style: GoogleFonts.playfairDisplay(
+                                  color: _cream,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                monument.location,
+                                style: GoogleFonts.inter(
+                                    color: _muted, fontSize: 11),
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: scorePercent,
+                                  minHeight: 6,
+                                  backgroundColor: _cardAlt,
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(_gold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Text(
-                          'Discovery Rate',
-                          style: GoogleFonts.spaceMono(
-                            color: Colors.white30,
-                            fontSize: 8,
+                          '${(scorePercent * 100).toInt()}%',
+                          style: GoogleFonts.inter(
+                            color: _gold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
       ],
     );
   }
 
+  // ── Shared helpers ──────────────────────────────────────────────────────────
   Widget _buildSectionHeader(String title, String subtitle) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: GoogleFonts.spaceMono(
-            color: const Color(0xFFDFAF58),
+          style: GoogleFonts.playfairDisplay(
+            color: _cream,
             fontWeight: FontWeight.bold,
-            fontSize: 12,
-            letterSpacing: 1.5,
+            fontSize: 16,
           ),
         ),
         Text(
           subtitle,
-          style: GoogleFonts.spaceMono(
-            color: Colors.white30,
-            fontSize: 10,
-          ),
+          style: GoogleFonts.inter(color: _muted, fontSize: 12),
         ),
       ],
     );
@@ -469,34 +459,28 @@ class ExplorerProfileScreen extends StatelessWidget {
 
   Widget _buildEmptyPlaceholder(String message) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF10192E).withOpacity(0.5),
+        color: _card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: _cardAlt),
       ),
       child: Center(
         child: Text(
           message,
-          style: GoogleFonts.outfit(
-            color: Colors.white30,
-            fontSize: 12,
-          ),
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(color: _muted, fontSize: 13),
         ),
       ),
     );
   }
 
-  Color _getBorderColorForRarity(BadgeRarity rarity) {
+  Color _rarityColor(BadgeRarity rarity) {
     switch (rarity) {
-      case BadgeRarity.bronze:
-        return Colors.brown.withOpacity(0.5);
-      case BadgeRarity.silver:
-        return Colors.blueGrey.withOpacity(0.5);
-      case BadgeRarity.gold:
-        return Colors.amber.withOpacity(0.5);
-      case BadgeRarity.legendary:
-        return Colors.purpleAccent.withOpacity(0.5);
+      case BadgeRarity.bronze:    return const Color(0xFFCD7F32);
+      case BadgeRarity.silver:    return const Color(0xFFB0C4DE);
+      case BadgeRarity.gold:      return _gold;
+      case BadgeRarity.legendary: return _terra;
     }
   }
 }

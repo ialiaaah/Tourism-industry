@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../../models/models.dart';
 import '../../services/firestore_service.dart';
 import 'ask_question_screen.dart';
@@ -95,9 +96,24 @@ class _StopDetailsScreenState extends State<StopDetailsScreen> {
     final imgPath = widget.stop.imagePath;
     final isNetwork =
         imgPath.startsWith('http://') || imgPath.startsWith('https://');
+    final isBase64 = imgPath.startsWith('data:image');
 
     Widget imageWidget;
-    if (isNetwork) {
+    if (isBase64) {
+      try {
+        final base64Str = imgPath.contains(',') ? imgPath.split(',').last : imgPath;
+        final bytes = base64Decode(base64Str);
+        imageWidget = Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => _fallbackHero(),
+        );
+      } catch (_) {
+        return _fallbackHero();
+      }
+    } else if (isNetwork) {
       imageWidget = Image.network(
         imgPath,
         fit: BoxFit.cover,
