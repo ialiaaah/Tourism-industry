@@ -144,30 +144,32 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
       if (!mounted) return;
 
       if (detected != null) {
-        // Try to find a matching monument in the database
+        // Match the detected landmark name to a monument in our collection.
         final monument = MonumentDataService.findByDetectedName(detected.name);
 
-        HapticFeedback.heavyImpact();
-        _successCtrl.forward(from: 0);
-
-        // Award points if we have a matching monument
         if (monument != null) {
+          // Genuine, accurate match — award points and route to its experience.
+          HapticFeedback.heavyImpact();
+          _successCtrl.forward(from: 0);
           await Provider.of<GameProgressService>(context, listen: false)
               .scanMonument(monument.id);
-        } else if (detected.name.toLowerCase().contains('sphinx')) {
-          // Sphinx detected but not found by name lookup — use fallback
-          final sphinx = MonumentDataService.findByDetectedName('The Great Sphinx');
-          if (sphinx != null && mounted) {
-            await Provider.of<GameProgressService>(context, listen: false)
-                .scanMonument(sphinx.id);
-          }
+          if (!mounted) return;
+          setState(() {
+            _state = _ScanState.success;
+            _result = detected;
+            _monument = monument;
+          });
+        } else {
+          // The API recognised something, but it is not in our collection.
+          // Do NOT silently substitute another monument — report honestly.
+          HapticFeedback.mediumImpact();
+          setState(() {
+            _state = _ScanState.failure;
+            _failureMessage =
+                'Detected "${detected.name}", but it is not in the CulturaX '
+                'collection yet. Try one of the supported monuments.';
+          });
         }
-
-        setState(() {
-          _state = _ScanState.success;
-          _result = detected;
-          _monument = monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
-        });
       } else {
         HapticFeedback.mediumImpact();
         setState(() {
@@ -260,10 +262,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
   // ── Navigation ────────────────────────────────────────────────────────────
 
   void _openARExperience() {
-    final detected = _result;
-    if (detected == null) return;
-
-    final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+    final monument = _monument;
     if (monument == null) return;
 
     final Widget screen = _resolveARScreen(monument);
@@ -280,14 +279,14 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
   }
 
   void _openTreasureHunt() {
-    final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+    final monument = _monument;
     if (monument == null) return;
     Navigator.push(context,
         MaterialPageRoute(builder: (_) => TreasureHuntScreen(monument: monument)));
   }
 
   void _openARHotspots() {
-    final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+    final monument = _monument;
     if (monument == null) return;
     Navigator.push(
       context,
