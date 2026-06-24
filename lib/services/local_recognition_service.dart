@@ -21,7 +21,9 @@ import 'package:image/image.dart' as img;
 class LocalRecognitionService {
   static const int _grid = 16;          // 16x16 signature grid
   static const int _workSize = 256;     // longest side used for analysis
-  static const double _acceptThreshold = 0.45; // min cosine to accept a match
+  // Live-camera shots (especially of a screen) are noisier than the clean
+  // reference photos, so the bar to accept a match is intentionally lenient.
+  static const double _acceptThreshold = 0.30; // min cosine to accept a match
 
   /// Curated, visually clean reference images per monument id.
   ///
@@ -74,6 +76,8 @@ class LocalRecognitionService {
         }
       }
       loaded[entry.key] = sigs;
+      debugPrint('[LocalRecognition] loaded ${sigs.length}/${entry.value.length} '
+          'reference signatures for "${entry.key}"');
     }
     _refSignatures = loaded;
   }
@@ -150,17 +154,31 @@ class LocalRecognitionService {
     final query = signatureFromBytes(bytes);
     if (query == null) return null;
 
-    String? bestId;
-    double bestScore = -2;
+    // Best cosine per monument (so we can log and compare classes clearly).
+    final perClassBest = <String, double>{};
     _refSignatures!.forEach((id, sigs) {
+      double best = -2;
       for (final ref in sigs) {
         final c = _cosine(query, ref);
-        if (c > bestScore) {
-          bestScore = c;
-          bestId = id;
-        }
+        if (c > best) best = c;
+      }
+      perClassBest[id] = best;
+    });
+
+    String? bestId;
+    double bestScore = -2;
+    perClassBest.forEach((id, score) {
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = id;
       }
     });
+
+    debugPrint('[LocalRecognition] scores: '
+        '${perClassBest.entries.map((e) => '${e.key}=${e.value.toStringAsFixed(3)}').join(', ')} '
+        '| best=$bestId (${bestScore.toStringAsFixed(3)}) '
+        'threshold=$_acceptThreshold '
+        '=> ${(bestId != null && bestScore >= _acceptThreshold) ? "ACCEPT" : "REJECT"}');
 
     if (bestId == null || bestScore < _acceptThreshold) return null;
     return LocalMatch(
