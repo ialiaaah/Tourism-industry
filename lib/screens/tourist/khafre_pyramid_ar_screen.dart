@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:math' as math;
+import 'package:path_provider/path_provider.dart';
 import 'package:ar_flutter_plugin/ar_flutter_plugin.dart';
 import 'package:ar_flutter_plugin/datatypes/config_planedetection.dart';
 import 'package:ar_flutter_plugin/datatypes/hittest_result_types.dart';
@@ -113,6 +115,7 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
   bool _modelPlaced = false;
   bool _isPlacing   = false;
   double _scale     = 0.40; // current model scale (zoom)
+  bool _modelReady  = false; // GLB copied to documents dir
   String _hint      = '✨  Summoning the Pyramid of Khafre…';
 
   // ── Facts carousel ────────────────────────────────────────────────────────
@@ -166,6 +169,25 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
     _factPopCtrl.value = 1.0;
 
     _confetti = ConfettiController(duration: const Duration(seconds: 3));
+    _copyGlbToDocuments();
+  }
+
+  /// Copy khafre_pyramid.glb from Flutter assets → documents directory so
+  /// NodeType.fileSystemAppFolderGLB can load it with a full path (same
+  /// mechanism the working Sphinx screen uses).
+  Future<void> _copyGlbToDocuments() async {
+    try {
+      final dir  = await getApplicationDocumentsDirectory();
+      final dest = File('${dir.path}/khafre_pyramid.glb');
+      // Always rewrite so an updated asset replaces a stale copy.
+      final data = await rootBundle.load('assets/models/khafre_pyramid.glb');
+      await dest.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      if (mounted) setState(() => _modelReady = true);
+      // If AR is already up, place now that the model is ready.
+      if (_objectMgr != null) _autoPlace();
+    } catch (e) {
+      debugPrint('[KhafreAR] GLB copy failed: $e');
+    }
   }
 
   @override
@@ -206,7 +228,9 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
   }
 
   ARNode _makeNode(double scale) => ARNode(
-        type: NodeType.localGLTF2,
+        // Load from the app documents folder (file copied in initState) — the
+        // same loader the Sphinx uses. localGLTF2/bundle paths fail on iOS.
+        type: NodeType.fileSystemAppFolderGLB,
         uri: 'khafre_pyramid.glb',
         scale: vm.Vector3(scale, scale, scale),
         position: vm.Vector3(0.0, -0.2, -1.0), // ~1 m in front of the camera
@@ -242,6 +266,13 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
   /// Place the pyramid automatically in front of the camera (no tap needed).
   Future<void> _autoPlace() async {
     if (_modelPlaced || _isPlacing || _objectMgr == null) return;
+    if (!_modelReady) {
+      // GLB still copying to the documents folder — retry shortly.
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) _autoPlace();
+      });
+      return;
+    }
     setState(() {
       _isPlacing = true;
       _hint = '⏳  Summoning the Pyramid of Khafre…';
@@ -294,7 +325,7 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
     }
 
     final node = ARNode(
-      type: NodeType.localGLTF2,
+      type: NodeType.fileSystemAppFolderGLB,
       uri: 'khafre_pyramid.glb',
       scale:    vm.Vector3(_scale, _scale, _scale),
       position: vm.Vector3(0.0, 0.0, 0.0),
