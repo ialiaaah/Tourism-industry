@@ -9,6 +9,7 @@ import '../../services/google_vision_service.dart';
 import '../../services/monument_data_service.dart';
 import '../../services/game_progress_service.dart';
 import '../../theme/app_theme.dart';
+import 'ar_experience_screen.dart';
 import 'sphinx_ar_screen.dart';
 import 'treasure_hunt_screen.dart';
 import 'web_cam/cam_interface.dart';
@@ -39,6 +40,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
   _ScanState _state = _ScanState.idle;
   DetectedLandmark? _result;
   MonumentInfo? _monument;
+  Uint8List? _lastCapturedBytes;
   String _failureMessage = 'No monument detected. Try a different angle or image.';
 
   // Animations
@@ -132,6 +134,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
       _state = _ScanState.scanning;
       _result = null;
       _monument = null;
+      _lastCapturedBytes = bytes;
     });
     HapticFeedback.lightImpact();
 
@@ -273,6 +276,20 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     if (monument == null) return;
     Navigator.push(context,
         MaterialPageRoute(builder: (_) => TreasureHuntScreen(monument: monument)));
+  }
+
+  void _openARHotspots() {
+    final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
+    if (monument == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ARExperienceScreen(
+          monument: monument,
+          capturedImage: _lastCapturedBytes,
+        ),
+      ),
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -598,6 +615,24 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.gold,
                         foregroundColor: AppColors.bg,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _openARHotspots,
+                      icon: const Icon(Icons.my_location_rounded, size: 18),
+                      label: const Text('AR Hotspot Experience'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4FC3F7),
+                        side: const BorderSide(
+                            color: Color(0xFF4FC3F7), width: 1.5),
                         padding:
                             const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

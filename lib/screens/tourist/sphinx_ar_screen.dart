@@ -22,6 +22,7 @@ import '../../services/monument_data_service.dart';
 import '../../services/game_progress_service.dart';
 import '../../services/audio_narration_service.dart';
 import '../../theme/app_theme.dart';
+import 'ar_experience_screen.dart';
 import 'treasure_hunt_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -728,6 +729,21 @@ class _SphinxARScreenState extends State<SphinxARScreen>
             const SizedBox(height: 8),
           ],
           Row(children: [
+            Expanded(
+              flex: 2,
+              child: _ActionBtn(
+                emoji: '📍',
+                label: 'AR Hotspots',
+                sublabel: 'Tap to explore',
+                color: const Color(0xFF4FC3F7),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            ARExperienceScreen(monument: widget.monument))),
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               flex: 3,
               child: _ActionBtn(
