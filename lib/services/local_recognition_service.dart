@@ -23,7 +23,10 @@ class LocalRecognitionService {
   static const int _workSize = 256;     // longest side used for analysis
   // Live-camera shots (especially of a screen) are noisier than the clean
   // reference photos, so the bar to accept a match is intentionally lenient.
-  static const double _acceptThreshold = 0.30; // min cosine to accept a match
+  static const double _acceptThreshold = 0.25; // min cosine to accept a match
+  // Central fraction of a captured camera frame kept for matching (the rest is
+  // background around the aimed monument).
+  static const double _queryCropFraction = 0.65;
 
   /// Curated, visually clean reference images per monument id.
   ///
@@ -83,14 +86,32 @@ class LocalRecognitionService {
   }
 
   /// Compute the normalized perceptual signature for raw image bytes.
+  ///
+  /// [cropFraction] < 1.0 keeps only the central portion of the image before
+  /// analysis. Camera frames are cropped to their center (where the user aims
+  /// the monument inside the on-screen scan box) so the signature reflects the
+  /// subject, not the surrounding wall/screen/desk. Reference photos are
+  /// already tight crops, so they use the full frame (cropFraction = 1.0).
   /// Returns null if the bytes cannot be decoded.
-  static List<double>? signatureFromBytes(Uint8List bytes) {
+  static List<double>? signatureFromBytes(Uint8List bytes,
+      {double cropFraction = 1.0}) {
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return null;
 
-    // Respect EXIF orientation, then downscale so analysis cost is bounded
-    // and identical for every input regardless of original resolution.
-    final oriented = img.bakeOrientation(decoded);
+    // Respect EXIF orientation.
+    var oriented = img.bakeOrientation(decoded);
+
+    // Optional center crop to isolate the aimed subject.
+    if (cropFraction < 1.0) {
+      final cw = (oriented.width * cropFraction).round().clamp(1, oriented.width);
+      final ch = (oriented.height * cropFraction).round().clamp(1, oriented.height);
+      final cx = ((oriented.width - cw) / 2).round();
+      final cy = ((oriented.height - ch) / 2).round();
+      oriented = img.copyCrop(oriented, x: cx, y: cy, width: cw, height: ch);
+    }
+
+    // Downscale so analysis cost is bounded and identical regardless of
+    // original resolution.
     final scale = _workSize / math.max(oriented.width, oriented.height);
     final tw = (oriented.width * scale).round().clamp(1, _workSize);
     final th = (oriented.height * scale).round().clamp(1, _workSize);
@@ -151,16 +172,26 @@ class LocalRecognitionService {
   /// if no monument clears the acceptance threshold.
   static Future<LocalMatch?> recognize(Uint8List bytes) async {
     await _ensureLoaded();
-    final query = signatureFromBytes(bytes);
-    if (query == null) return null;
+    // Match the full frame AND a center-cropped version; keep whichever scores
+    // higher. This handles both close-up shots and ones where the monument
+    // sits in the middle of a wider scene.
+    final qFull = signatureFromBytes(bytes);
+    final qCrop = signatureFromBytes(bytes, cropFraction: _queryCropFraction);
+    if (qFull == null && qCrop == null) return null;
 
-    // Best cosine per monument (so we can log and compare classes clearly).
+    // Best cosine per monument across both query variants (full + cropped).
     final perClassBest = <String, double>{};
     _refSignatures!.forEach((id, sigs) {
       double best = -2;
       for (final ref in sigs) {
-        final c = _cosine(query, ref);
-        if (c > best) best = c;
+        if (qFull != null) {
+          final c = _cosine(qFull, ref);
+          if (c > best) best = c;
+        }
+        if (qCrop != null) {
+          final c = _cosine(qCrop, ref);
+          if (c > best) best = c;
+        }
       }
       perClassBest[id] = best;
     });
