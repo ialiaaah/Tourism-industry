@@ -11,6 +11,7 @@ import '../../services/game_progress_service.dart';
 import '../../theme/app_theme.dart';
 import 'ar_experience_screen.dart';
 import 'sphinx_ar_screen.dart';
+import 'khafre_pyramid_ar_screen.dart';
 import 'treasure_hunt_screen.dart';
 import 'web_cam/cam_interface.dart';
 
@@ -262,13 +263,20 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     final detected = _result;
     if (detected == null) return;
 
-    // Navigate to SphinxARScreen for Sphinx detections; fall back to it for
-    // any other monument until dedicated AR screens are built.
     final monument = _monument ?? MonumentDataService.findByDetectedName('The Great Sphinx');
     if (monument == null) return;
 
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => SphinxARScreen(monument: monument)));
+    final Widget screen = _resolveARScreen(monument);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Widget _resolveARScreen(MonumentInfo monument) {
+    switch (monument.id) {
+      case 'khafre_pyramid':
+        return KhafrePyramidARScreen(monument: monument);
+      default:
+        return SphinxARScreen(monument: monument);
+    }
   }
 
   void _openTreasureHunt() {
@@ -537,7 +545,9 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
   }
 
   Widget _buildSuccessOverlay(DetectedLandmark result) {
-    final isSphinx = result.name.toLowerCase().contains('sphinx');
+    final monumentId = _monument?.id ?? '';
+    final isSphinx   = monumentId == 'sphinx' || result.name.toLowerCase().contains('sphinx');
+    final isPyramid  = monumentId == 'khafre_pyramid';
     return Positioned.fill(
       child: Container(
         color: Colors.black.withValues(alpha: 0.72),
@@ -611,7 +621,9 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                       icon: const Icon(Icons.explore_rounded, size: 18),
                       label: Text(isSphinx
                           ? 'Explore Sphinx in AR'
-                          : 'Explore AR Experience'),
+                          : isPyramid
+                              ? 'Explore Pyramid in AR'
+                              : 'Explore AR Experience'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.gold,
                         foregroundColor: AppColors.bg,

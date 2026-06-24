@@ -160,6 +160,75 @@ class MonumentDataService {
       ],
     ),
     MonumentInfo(
+      id: 'khafre_pyramid',
+      name: 'Pyramid of Khafre',
+      era: 'Old Kingdom, c. 2530 BCE',
+      location: 'Giza Plateau, Cairo',
+      overview:
+          'The Pyramid of Khafre is the second largest pyramid at Giza and the most visually striking — it still retains its original white Tura limestone casing near the apex, making it appear taller than the Great Pyramid from most angles.',
+      history:
+          'Built by Pharaoh Khafre, son of Khufu, during the Fourth Dynasty. Its steeper 53° slope and elevated base create the illusion of greater height. The pyramid complex includes the Valley Temple, Sphinx Temple, and the Great Sphinx — believed to bear Khafre\'s face. Italian explorer Giovanni Belzoni first entered the burial chamber in 1818 CE, finding it already plundered.',
+      funFacts: [
+        'It still wears its original white limestone casing near the apex, a rare surviving feature.',
+        'The steeper 53° slope makes it look taller than the Great Pyramid from most angles.',
+        'The Great Sphinx next to it is believed to bear the face of Pharaoh Khafre.',
+        'Its four sides align within 0.056° of true north — achieved with naked-eye astronomy.',
+      ],
+      emoji: '🔺',
+      aliases: [
+        'Pyramid of Khafre',
+        'Khafre Pyramid',
+        'Pyramid of Chephren',
+        'Chephren Pyramid',
+        'Second Pyramid of Giza',
+        'Khafre',
+        'Chephren',
+      ],
+      customAudioNarrationText:
+          'Welcome to the Pyramid of Khafre, the second largest pyramid on the Giza Plateau. '
+          'Built around 2530 BCE by Pharaoh Khafre, son of Khufu, this magnificent monument stands 136 metres tall. '
+          'Unlike its neighbours, Khafre\'s pyramid still retains part of its original white Tura limestone casing near the apex — '
+          'a glimpse of the blinding brilliance these monuments once displayed across the desert. '
+          'The pyramid\'s steeper 53-degree slope creates an optical illusion: standing beside it, many visitors believe it '
+          'surpasses the Great Pyramid in height. '
+          'The complex includes a valley temple, a causeway, and the Great Sphinx — that legendary lion-bodied guardian '
+          'whose face is widely believed to be a portrait of Khafre himself. '
+          'Inside, the burial chamber held only a red granite sarcophagus when first entered in 1818. '
+          'The tomb had already been plundered in antiquity. Swipe through the facts to discover more secrets hidden within these ancient stones.',
+      customTimeline: [
+        TimelineEvent(
+          year: 'c. 2558 BCE',
+          title: 'Khafre Becomes Pharaoh',
+          description: 'Khafre inherits the throne following the death of his father Khufu.',
+        ),
+        TimelineEvent(
+          year: 'c. 2530 BCE',
+          title: 'Construction Begins',
+          description: 'Thousands of skilled workers begin quarrying local limestone for the pyramid complex.',
+        ),
+        TimelineEvent(
+          year: 'c. 2510 BCE',
+          title: 'Pyramid Completed',
+          description: 'The pyramid is sealed with its gleaming white Tura limestone casing; the Great Sphinx is carved.',
+        ),
+        TimelineEvent(
+          year: '1226 CE',
+          title: 'First Known Intrusion',
+          description: 'An Arab merchant leaves an inscription inside the burial chamber, evidence of earlier plundering.',
+        ),
+        TimelineEvent(
+          year: '1818 CE',
+          title: 'Belzoni\'s Entry',
+          description: 'Italian explorer Giovanni Belzoni officially opens the pyramid and finds the sarcophagus empty.',
+        ),
+        TimelineEvent(
+          year: 'Present',
+          title: 'Unlocked in CulturaX',
+          description: 'AR scanning brings the Pyramid of Khafre to life — place the 3D model in your world and explore.',
+        ),
+      ],
+    ),
+    MonumentInfo(
       id: 'pyramids_giza',
       name: 'Pyramids of Giza',
       era: 'Old Kingdom, c. 2560–2510 BCE',

@@ -1,0 +1,186 @@
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- TITLE -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mxCell id="title" value="CulturaX — System Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1">
+      <mxGeometry x="527" y="20" width="600" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- LAYER 1 — USER -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mxCell id="user_tourist" value="👤 Tourist" style="shape=mxgraph.ios7.misc.user;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;verticalLabelPosition=bottom;labelPosition=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="280" y="100" width="60" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="user_guide" value="👤 Guide" style="shape=mxgraph.ios7.misc.user;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;verticalLabelPosition=bottom;labelPosition=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="420" y="100" width="60" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- LAYER 2 — MOBILE APP (big container) -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mxCell id="app_container" value="Flutter iOS Application" style="swimlane;startSize=30;fillColor=#f5f5f5;strokeColor=#1a1a2e;fontColor=#1a1a2e;fontSize=14;fontStyle=1;rounded=1;arcSize=4;" vertex="1" parent="1">
+      <mxGeometry x="100" y="240" width="1120" height="480" as="geometry" />
+    </mxCell>
+
+    <!-- ── UI Layer ── -->
+    <mxCell id="ui_layer" value="Presentation Layer (Flutter Widgets)" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;rounded=1;" vertex="1" parent="app_container">
+      <mxGeometry x="20" y="50" width="1080" height="130" as="geometry" />
+    </mxCell>
+
+    <mxCell id="screen_auth" value="Auth Screens&#xa;(Login / Register)" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="20" y="40" width="140" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="screen_home" value="Home Screen&#xa;(Tourist / Guide)" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="180" y="40" width="140" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="screen_scanner" value="Heritage Scanner&#xa;Screen" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="340" y="40" width="140" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="screen_ar" value="AR Hotspot +&#xa;Sphinx AR Screen" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="500" y="40" width="140" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="screen_tour" value="Tour Screens&#xa;(Join / Navigate)" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="660" y="40" width="140" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="screen_game" value="Treasure Hunt +&#xa;Profile Screen" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="820" y="40" width="140" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="screen_guide" value="Guide Dashboard&#xa;(Create Route)" style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="ui_layer">
+      <mxGeometry x="980" y="40" width="80" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- ── State / Service Layer ── -->
+    <mxCell id="state_layer" value="State Management &amp; Services (Provider)" style="swimlane;startSize=25;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;rounded=1;" vertex="1" parent="app_container">
+      <mxGeometry x="20" y="200" width="1080" height="130" as="geometry" />
+    </mxCell>
+
+    <mxCell id="svc_auth" value="Auth Provider&#xa;(Firebase Auth)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="state_layer">
+      <mxGeometry x="20" y="40" width="150" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="svc_firestore" value="Firestore Service&#xa;(Tours / Stamps / XP)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="state_layer">
+      <mxGeometry x="190" y="40" width="165" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="svc_vision" value="Vision Service&#xa;(Google Cloud Vision)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="state_layer">
+      <mxGeometry x="375" y="40" width="165" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="svc_ar" value="AR Service&#xa;(ar_flutter_plugin)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="state_layer">
+      <mxGeometry x="560" y="40" width="150" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="svc_tts" value="Audio Narration&#xa;Service (flutter_tts)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="state_layer">
+      <mxGeometry x="730" y="40" width="160" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="svc_game" value="Gamification&#xa;Provider (XP / Badges)" style="rounded=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="state_layer">
+      <mxGeometry x="910" y="40" width="150" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- ── On-Device Layer ── -->
+    <mxCell id="device_layer" value="On-Device (iOS Native)" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;rounded=1;" vertex="1" parent="app_container">
+      <mxGeometry x="20" y="350" width="520" height="100" as="geometry" />
+    </mxCell>
+
+    <mxCell id="arkit" value="ARKit&#xa;(Plane Detection /&#xa;World Tracking)" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="device_layer">
+      <mxGeometry x="20" y="35" width="150" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="glb" value="GLB Model&#xa;(Sphinx Asset /&#xa;Documents Dir)" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="device_layer">
+      <mxGeometry x="190" y="35" width="150" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="camera" value="Camera&#xa;(AVFoundation)" style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="device_layer">
+      <mxGeometry x="360" y="35" width="140" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- LAYER 3 — CLOUD SERVICES -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mxCell id="cloud_container" value="Cloud Services" style="swimlane;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#b85450;fontSize=14;fontStyle=1;rounded=1;arcSize=4;" vertex="1" parent="1">
+      <mxGeometry x="100" y="800" width="1120" height="140" as="geometry" />
+    </mxCell>
+
+    <mxCell id="firebase_auth" value="🔐 Firebase Authentication&#xa;Email/Password · Google Sign-In&#xa;Role Detection (Tourist / Guide)" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="cloud_container">
+      <mxGeometry x="30" y="45" width="220" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="firestore" value="🗄️ Cloud Firestore&#xa;Tours · Stops · Stamps&#xa;Quiz Questions · XP / Badges" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="cloud_container">
+      <mxGeometry x="280" y="45" width="220" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="vision_api" value="👁️ Google Cloud Vision API&#xa;Landmark Detection&#xa;Monument Identification" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="cloud_container">
+      <mxGeometry x="530" y="45" width="220" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="tts_engine" value="🔊 iOS TTS Engine&#xa;AVSpeechSynthesizer&#xa;Audio Session (AVAudioSession)" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="cloud_container">
+      <mxGeometry x="780" y="45" width="220" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="gltf_lib" value="📦 GLTFSceneKit&#xa;GLB / GLTF Loader&#xa;SceneKit Integration" style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="cloud_container">
+      <mxGeometry x="1030" y="45" width="60" height="75" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- ARROWS — Users → App -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" source="user_tourist" target="app_container" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#82b366;strokeWidth=2;" edge="1" source="user_guide" target="app_container" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ARROWS — App Service Layer → Cloud -->
+    <mxCell id="e3" value="REST / HTTPS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;strokeWidth=2;dashed=1;exitX=0.1;exitY=1;exitDx=0;exitDy=0;" edge="1" source="svc_auth" target="firebase_auth" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="Firestore SDK" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;strokeWidth=2;dashed=1;" edge="1" source="svc_firestore" target="firestore" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" value="HTTP POST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;strokeWidth=2;dashed=1;" edge="1" source="svc_vision" target="vision_api" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" value="AVFoundation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;strokeWidth=2;dashed=1;" edge="1" source="svc_tts" target="tts_engine" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ARROWS — AR Service → On-Device -->
+    <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#82b366;strokeWidth=2;" edge="1" source="svc_ar" target="arkit" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#82b366;strokeWidth=2;" edge="1" source="svc_ar" target="glb" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#82b366;strokeWidth=2;" edge="1" source="svc_vision" target="camera" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- LEGEND -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <mxCell id="legend" value="Legend" style="swimlane;startSize=25;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1260" y="240" width="240" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="l1" value="" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="legend">
+      <mxGeometry x="20" y="40" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l1t" value="UI / Screens" style="text;html=1;align=left;fontSize=11;" vertex="1" parent="legend">
+      <mxGeometry x="60" y="38" width="160" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="l2" value="" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="legend">
+      <mxGeometry x="20" y="75" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l2t" value="Services / State" style="text;html=1;align=left;fontSize=11;" vertex="1" parent="legend">
+      <mxGeometry x="60" y="73" width="160" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="l3" value="" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="legend">
+      <mxGeometry x="20" y="110" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l3t" value="On-Device (iOS Native)" style="text;html=1;align=left;fontSize=11;" vertex="1" parent="legend">
+      <mxGeometry x="60" y="108" width="160" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="l4" value="" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="legend">
+      <mxGeometry x="20" y="145" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l4t" value="Cloud / External APIs" style="text;html=1;align=left;fontSize=11;" vertex="1" parent="legend">
+      <mxGeometry x="60" y="143" width="160" height="24" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>
