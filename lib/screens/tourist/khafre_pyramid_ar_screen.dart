@@ -112,7 +112,8 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
   ARAnchor?          _pyramidAnchor;
   bool _modelPlaced = false;
   bool _isPlacing   = false;
-  String _hint      = '✨  Slowly scan a flat surface, then tap to summon the Pyramid!';
+  double _scale     = 0.40; // current model scale (zoom)
+  String _hint      = '✨  Summoning the Pyramid of Khafre…';
 
   // ── Facts carousel ────────────────────────────────────────────────────────
   int _factIndex   = 0;
@@ -194,56 +195,37 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
       showWorldOrigin: false,
     );
     objects.onInitialize();
+    // Tapping a detected surface re-summons the pyramid there (fallback).
     session.onPlaneOrPointTap = _onPlaneTapped;
+
+    // Auto-place the pyramid shortly after the AR session is ready — no need
+    // to find a plane and tap.
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) _autoPlace();
+    });
   }
 
-  Future<void> _onPlaneTapped(List<ARHitTestResult> results) async {
-    if (_modelPlaced || _isPlacing || results.isEmpty) return;
+  ARNode _makeNode(double scale) => ARNode(
+        type: NodeType.localGLTF2,
+        uri: 'khafre_pyramid.glb',
+        scale: vm.Vector3(scale, scale, scale),
+        position: vm.Vector3(0.0, -0.2, -1.0), // ~1 m in front of the camera
+        rotation: vm.Vector4(0.0, 1.0, 0.0, 0.0),
+      );
 
-    final hit = results.firstWhere(
-      (r) => r.type == ARHitTestResultType.plane,
-      orElse: () => results.first,
-    );
-
-    setState(() {
-      _isPlacing = true;
-      _hint = '⏳  Raising the Pyramid of Khafre…';
-    });
-    HapticFeedback.mediumImpact();
-
-    final anchor = ARPlaneAnchor(transformation: hit.worldTransform);
-    final added  = await _anchorMgr?.addAnchor(anchor);
-    if (added != true) {
-      setState(() {
-        _isPlacing = false;
-        _hint = '🔄  Couldn\'t anchor. Tap a flat surface.';
-      });
-      return;
+  void _afterPlaced({required bool firstTime}) {
+    if (mounted) {
+      Provider.of<GameProgressService>(context, listen: false)
+          .scanMonument(widget.monument.id);
     }
-
-    final node = ARNode(
-      type: NodeType.localGLTF2,
-      uri: 'khafre_pyramid.glb',
-      scale:    vm.Vector3(0.40, 0.40, 0.40),
-      position: vm.Vector3(0.0, 0.0, 0.0),
-      rotation: vm.Vector4(0.0, 1.0, 0.0, 0.0),
-    );
-
-    final placed = await _objectMgr?.addNode(node, planeAnchor: anchor);
-    if (placed == true) {
-      _pyramidNode   = node;
-      _pyramidAnchor = anchor;
-      if (mounted) {
-        Provider.of<GameProgressService>(context, listen: false)
-            .scanMonument(widget.monument.id);
-      }
-      setState(() {
-        _modelPlaced       = true;
-        _isPlacing         = false;
-        _hint              = '🔺  The Pyramid stands! Walk around to explore.';
-        _showWelcomeBanner = true;
-      });
-      HapticFeedback.heavyImpact();
+    setState(() {
+      _modelPlaced = true;
+      _isPlacing   = false;
+      _hint        = '🔺  The Pyramid is here! Use +/–  to zoom, drag to look around.';
+      if (firstTime) _showWelcomeBanner = true;
+    });
+    HapticFeedback.heavyImpact();
+    if (firstTime) {
       _confetti.play();
       _bannerCtrl.forward();
       Future.delayed(const Duration(seconds: 4), () {
@@ -254,6 +236,75 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
           });
         }
       });
+    }
+  }
+
+  /// Place the pyramid automatically in front of the camera (no tap needed).
+  Future<void> _autoPlace() async {
+    if (_modelPlaced || _isPlacing || _objectMgr == null) return;
+    setState(() {
+      _isPlacing = true;
+      _hint = '⏳  Summoning the Pyramid of Khafre…';
+    });
+    final node = _makeNode(_scale);
+    final placed = await _objectMgr?.addNode(node);
+    if (placed == true) {
+      _pyramidNode = node;
+      _afterPlaced(firstTime: true);
+    } else {
+      setState(() {
+        _isPlacing = false;
+        _hint = '👆  Tap a flat surface to place the Pyramid.';
+      });
+    }
+  }
+
+  /// Fallback: tap a detected surface to (re)place the pyramid there.
+  Future<void> _onPlaneTapped(List<ARHitTestResult> results) async {
+    if (_isPlacing || results.isEmpty) return;
+    final firstTime = !_modelPlaced;
+    final hit = results.firstWhere(
+      (r) => r.type == ARHitTestResultType.plane,
+      orElse: () => results.first,
+    );
+    setState(() {
+      _isPlacing = true;
+      _hint = '⏳  Raising the Pyramid of Khafre…';
+    });
+    HapticFeedback.mediumImpact();
+
+    // Clear any existing model first.
+    if (_pyramidNode != null) {
+      await _objectMgr?.removeNode(_pyramidNode!);
+      _pyramidNode = null;
+    }
+    if (_pyramidAnchor != null) {
+      await _anchorMgr?.removeAnchor(_pyramidAnchor!);
+      _pyramidAnchor = null;
+    }
+
+    final anchor = ARPlaneAnchor(transformation: hit.worldTransform);
+    final added  = await _anchorMgr?.addAnchor(anchor);
+    if (added != true) {
+      setState(() {
+        _isPlacing = false;
+        _hint = '🔄  Couldn\'t anchor there. Try again.';
+      });
+      return;
+    }
+
+    final node = ARNode(
+      type: NodeType.localGLTF2,
+      uri: 'khafre_pyramid.glb',
+      scale:    vm.Vector3(_scale, _scale, _scale),
+      position: vm.Vector3(0.0, 0.0, 0.0),
+      rotation: vm.Vector4(0.0, 1.0, 0.0, 0.0),
+    );
+    final placed = await _objectMgr?.addNode(node, planeAnchor: anchor);
+    if (placed == true) {
+      _pyramidNode   = node;
+      _pyramidAnchor = anchor;
+      _afterPlaced(firstTime: firstTime);
     } else {
       await _anchorMgr?.removeAnchor(anchor);
       setState(() {
@@ -263,13 +314,35 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
     }
   }
 
+  /// Zoom in/out by re-adding the model at a new scale.
+  Future<void> _rescale(double factor) async {
+    if (!_modelPlaced || _pyramidNode == null || _isPlacing) return;
+    _scale = (_scale * factor).clamp(0.12, 2.5);
+    await _objectMgr?.removeNode(_pyramidNode!);
+    if (_pyramidAnchor != null) {
+      await _anchorMgr?.removeAnchor(_pyramidAnchor!);
+      _pyramidAnchor = null;
+    }
+    final node = _makeNode(_scale);
+    final ok = await _objectMgr?.addNode(node);
+    if (ok == true) {
+      _pyramidNode = node;
+      HapticFeedback.selectionClick();
+    }
+    setState(() {});
+  }
+
   Future<void> _resetModel() async {
     if (_pyramidNode   != null) { await _objectMgr?.removeNode(_pyramidNode!);   _pyramidNode   = null; }
     if (_pyramidAnchor != null) { await _anchorMgr?.removeAnchor(_pyramidAnchor!); _pyramidAnchor = null; }
+    _scale = 0.40;
     setState(() {
       _modelPlaced = false;
       _isPlacing   = false;
-      _hint        = '✨  Scan a flat surface, then tap to place the Pyramid again!';
+      _hint        = '✨  Summoning the Pyramid of Khafre…';
+    });
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _autoPlace();
     });
   }
 
@@ -610,22 +683,21 @@ class _KhafrePyramidARScreenState extends State<KhafrePyramidARScreen>
           ),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          flex: 2,
-          child: _modelPlaced
-              ? _ActionBtn(
-                  emoji: '🔄',
-                  label: 'Reset',
-                  sublabel: 'Place again',
-                  color: AppColors.muted,
-                  onTap: _resetModel)
-              : _ActionBtn(
-                  emoji: '👆',
-                  label: 'Tap surface',
-                  sublabel: 'to place',
-                  color: _kPyramidGold,
-                  onTap: null),
-        ),
+        // Zoom + reset controls (enabled once the model is placed).
+        _RoundCtrl(
+            icon: Icons.remove_rounded,
+            color: _kPyramidGold,
+            onTap: _modelPlaced ? () => _rescale(0.8) : null),
+        const SizedBox(width: 6),
+        _RoundCtrl(
+            icon: Icons.add_rounded,
+            color: _kPyramidGold,
+            onTap: _modelPlaced ? () => _rescale(1.25) : null),
+        const SizedBox(width: 6),
+        _RoundCtrl(
+            icon: Icons.refresh_rounded,
+            color: AppColors.muted,
+            onTap: _modelPlaced ? _resetModel : null),
       ]),
     );
   }
@@ -727,6 +799,32 @@ class _FactCard extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+class _RoundCtrl extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  const _RoundCtrl({required this.icon, required this.color, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final c = enabled ? color : AppColors.muted;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: c.withValues(alpha: enabled ? 0.15 : 0.06),
+          border: Border.all(color: c.withValues(alpha: enabled ? 0.5 : 0.2), width: 1.2),
+        ),
+        child: Icon(icon, color: c.withValues(alpha: enabled ? 1.0 : 0.4), size: 24),
+      ),
     );
   }
 }

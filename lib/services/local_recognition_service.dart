@@ -31,7 +31,7 @@ class LocalRecognitionService {
   static const double _acceptThreshold = 0.25; // min cosine to accept a match
   // Central fraction of a captured camera frame kept for matching (the rest is
   // background around the aimed monument).
-  static const double _queryCropFraction = 0.65;
+  static const double _queryCropFraction = 0.55;
 
   /// Curated, visually clean reference images per monument id.
   ///
@@ -234,26 +234,20 @@ class LocalRecognitionService {
   /// if no monument clears the acceptance threshold.
   static Future<LocalMatch?> recognize(Uint8List bytes) async {
     await _ensureLoaded();
-    // Match the full frame AND a center-cropped version; keep whichever scores
-    // higher. This handles both close-up shots and ones where the monument
-    // sits in the middle of a wider scene.
-    final qFull = signatureFromBytes(bytes);
-    final qCrop = signatureFromBytes(bytes, cropFraction: _queryCropFraction);
-    if (qFull == null && qCrop == null) return null;
+    // Match ONLY the center-cropped region — the part of the frame where the
+    // user aims the monument inside the scan box. Matching the full frame was
+    // letting plain background (wall/screen glow) match the pyramid's large
+    // sky areas, biasing every scan toward the pyramid.
+    final query = signatureFromBytes(bytes, cropFraction: _queryCropFraction);
+    if (query == null) return null;
 
-    // Best cosine per monument across both query variants (full + cropped).
+    // Best cosine per monument.
     final perClassBest = <String, double>{};
     _refSignatures!.forEach((id, sigs) {
       double best = -2;
       for (final ref in sigs) {
-        if (qFull != null) {
-          final c = _cosine(qFull, ref);
-          if (c > best) best = c;
-        }
-        if (qCrop != null) {
-          final c = _cosine(qCrop, ref);
-          if (c > best) best = c;
-        }
+        final c = _cosine(query, ref);
+        if (c > best) best = c;
       }
       perClassBest[id] = best;
     });
