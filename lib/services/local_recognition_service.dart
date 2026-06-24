@@ -19,8 +19,13 @@ import 'package:image/image.dart' as img;
 /// Because the SAME Dart code computes both the reference and the query
 /// signatures, the pipeline is fully self-consistent and deterministic.
 class LocalRecognitionService {
-  static const int _grid = 16;          // 16x16 signature grid
+  static const int _grid = 16;          // 16x16 grayscale structure grid
+  static const int _colorGrid = 8;      // 8x8 color grid (RGB per cell)
   static const int _workSize = 256;     // longest side used for analysis
+
+  /// Last per-monument scores from the most recent recognize() call — exposed
+  /// so the UI can show a tuning readout. (Temporary diagnostic.)
+  static Map<String, double> lastScores = {};
   // Live-camera shots (especially of a screen) are noisier than the clean
   // reference photos, so the bar to accept a match is intentionally lenient.
   static const double _acceptThreshold = 0.25; // min cosine to accept a match
@@ -119,7 +124,9 @@ class LocalRecognitionService {
         width: tw, height: th, interpolation: img.Interpolation.average);
 
     final w = image.width, h = image.height;
-    final cells = List<double>.filled(_grid * _grid, 0);
+
+    // (a) Grayscale structure grid (shape/brightness layout).
+    final gray = List<double>.filled(_grid * _grid, 0);
     for (int cy = 0; cy < _grid; cy++) {
       final y0 = cy * h ~/ _grid;
       final y1 = math.max(y0 + 1, (cy + 1) * h ~/ _grid);
@@ -131,33 +138,88 @@ class LocalRecognitionService {
         for (int yy = y0; yy < y1; yy++) {
           for (int xx = x0; xx < x1; xx++) {
             final p = image.getPixel(xx, yy);
-            // ITU-R 601 luma (matches typical grayscale conversion).
             sum += 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
             n++;
           }
         }
-        cells[cy * _grid + cx] = sum / n;
+        gray[cy * _grid + cx] = sum / n;
       }
     }
 
-    // Mean-subtract (removes brightness offset) + L2-normalize (removes
-    // contrast scaling) -> unit vector comparable via cosine similarity.
+    // (b) Color grid (R,G,B per cell) — captures palette/layout (e.g. blue sky
+    // above a pyramid vs warm sand around the Sphinx). This is the cue that
+    // separates two otherwise similarly-shaped sandy monuments.
+    final color = List<double>.filled(_colorGrid * _colorGrid * 3, 0);
+    for (int cy = 0; cy < _colorGrid; cy++) {
+      final y0 = cy * h ~/ _colorGrid;
+      final y1 = math.max(y0 + 1, (cy + 1) * h ~/ _colorGrid);
+      for (int cx = 0; cx < _colorGrid; cx++) {
+        final x0 = cx * w ~/ _colorGrid;
+        final x1 = math.max(x0 + 1, (cx + 1) * w ~/ _colorGrid);
+        double sr = 0, sg = 0, sb = 0;
+        int n = 0;
+        for (int yy = y0; yy < y1; yy++) {
+          for (int xx = x0; xx < x1; xx++) {
+            final p = image.getPixel(xx, yy);
+            sr += p.r;
+            sg += p.g;
+            sb += p.b;
+            n++;
+          }
+        }
+        final idx = (cy * _colorGrid + cx) * 3;
+        color[idx] = sr / n;
+        color[idx + 1] = sg / n;
+        color[idx + 2] = sb / n;
+      }
+    }
+
+    // Normalize grayscale: mean-subtract (drop brightness) + L2 (drop contrast).
+    _meanSubtractL2(gray);
+    // Normalize color: L2 only — keep the actual hue/palette information.
+    _l2(color);
+
+    // Concatenate as a single unit vector (each half weighted equally), so the
+    // cosine of two signatures = average of their grayscale and color cosines.
+    final inv = 1.0 / math.sqrt(2.0);
+    final out = List<double>.filled(gray.length + color.length, 0);
+    for (int i = 0; i < gray.length; i++) {
+      out[i] = gray[i] * inv;
+    }
+    for (int i = 0; i < color.length; i++) {
+      out[gray.length + i] = color[i] * inv;
+    }
+    return out;
+  }
+
+  static void _meanSubtractL2(List<double> v) {
     double mean = 0;
-    for (final c in cells) {
+    for (final c in v) {
       mean += c;
     }
-    mean /= cells.length;
+    mean /= v.length;
     double norm = 0;
-    for (int i = 0; i < cells.length; i++) {
-      cells[i] -= mean;
-      norm += cells[i] * cells[i];
+    for (int i = 0; i < v.length; i++) {
+      v[i] -= mean;
+      norm += v[i] * v[i];
     }
     norm = math.sqrt(norm);
     if (norm == 0) norm = 1;
-    for (int i = 0; i < cells.length; i++) {
-      cells[i] /= norm;
+    for (int i = 0; i < v.length; i++) {
+      v[i] /= norm;
     }
-    return cells;
+  }
+
+  static void _l2(List<double> v) {
+    double norm = 0;
+    for (final c in v) {
+      norm += c * c;
+    }
+    norm = math.sqrt(norm);
+    if (norm == 0) norm = 1;
+    for (int i = 0; i < v.length; i++) {
+      v[i] /= norm;
+    }
   }
 
   static double _cosine(List<double> a, List<double> b) {
@@ -195,6 +257,7 @@ class LocalRecognitionService {
       }
       perClassBest[id] = best;
     });
+    lastScores = perClassBest;
 
     String? bestId;
     double bestScore = -2;

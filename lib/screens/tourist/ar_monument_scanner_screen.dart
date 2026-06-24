@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../services/google_vision_service.dart';
+import '../../services/local_recognition_service.dart';
 import '../../services/monument_data_service.dart';
 import '../../services/game_progress_service.dart';
 import '../../theme/app_theme.dart';
@@ -543,6 +544,24 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
     );
   }
 
+  // TEMPORARY tuning readout — shows the raw match score per monument so we
+  // can calibrate recognition. Remove once detection is dialed in.
+  Widget _buildDebugScores() {
+    final scores = LocalRecognitionService.lastScores;
+    if (scores.isEmpty) return const SizedBox.shrink();
+    final text = scores.entries
+        .map((e) => '${e.key}: ${e.value.toStringAsFixed(2)}')
+        .join('   ');
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Text(
+        'match scores  •  $text',
+        style: AppTextStyles.labelSmall.copyWith(color: AppColors.muted),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
   Widget _buildSuccessOverlay(DetectedLandmark result) {
     final monumentId = _monument?.id ?? '';
     final isSphinx   = monumentId == 'sphinx' || result.name.toLowerCase().contains('sphinx');
@@ -612,6 +631,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                           .copyWith(color: AppColors.success),
                     ),
                   ),
+                  _buildDebugScores(),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -725,6 +745,7 @@ class _ARMonumentScannerScreenState extends State<ARMonumentScannerScreen>
                   style: AppTextStyles.body,
                   textAlign: TextAlign.center,
                 ),
+                _buildDebugScores(),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
